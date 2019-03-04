@@ -1,17 +1,17 @@
 version: "3.5"
 services:
     api:
-        image: "node:latest"
+        image: "node:11"
         container_name: "api"
-        user: "node"
         working_dir: /home/node/api
         environment:
           - NODE_ENV=production
         volumes:
           - ./api:/home/node/api
+          - node:/home/node/api/node_modules
         expose:
           - "8080"
-        command: "npm start"
+        command: bash -c "npm install && npm start"
     proxy:
         image: nginx
         container_name: "proxy"
@@ -19,3 +19,5 @@ services:
           - "80:80"
         volumes:
           - ./nginx/conf.d/prod:/etc/nginx/conf.d
+volumes:
+    node:
