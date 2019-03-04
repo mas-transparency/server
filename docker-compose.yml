@@ -1,7 +1,7 @@
 version: "3.5"
 services:
     api:
-        image: "node:11"
+        image: "node:latest"
         container_name: "api"
         user: "node"
         working_dir: /home/node/api
