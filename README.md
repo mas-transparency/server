@@ -6,6 +6,7 @@ Returns a JSON list of all chores.
 ## POST /chores
 Creates a Chore. Requires a JSON body payload with the following
 fields specified.
+
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
 | name             | String    | yes       |             |
