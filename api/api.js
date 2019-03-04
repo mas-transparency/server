@@ -1,7 +1,11 @@
 const express = require('express')
-
+const bodyParser = require('body-parser')
+const { check, validationResult } = require('express-validator/check');
 const app = express()
 const port = 8080
+
+// create application/json parser
+const jsonParser = bodyParser.json()
 
 // Initialize firebase SDK
 const admin = require('firebase-admin');
@@ -45,6 +49,37 @@ app.get('/assigned-chores', (req, res) => {
         console.log(response);
         res.json(response);
     });
+});
+
+// Create a chore. A Chore has a name, reward, and num_chore_points
+// This endpoint accepts application/json requests
+app.post('/chores', [
+    jsonParser,
+    check('name').exists(),
+    check('reward').exists(),
+    check('num_chore_points').isNumeric(),
+    check('assigned_user').exists(),
+    check('priority').isNumeric()
+    ], (req, res) => {
+    const errors = validationResult(req);
+    // Check to see if the req includes name, reward, and num_chore_points
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+    db.collection("chores").add({
+        "name": req.body.name,
+        "reward": req.body.reward,
+        "num_chore_points": req.body.num_chore_points,
+        "assigned_to": req.body.assigned_user,
+        "priority": req.body.priority
+    }).then(ref => {
+        console.log("Added document with " + ref.id);
+        return res.status(200).json({
+            id: ref.id,
+            data: ref.data
+        });
+    });
+
 });
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
