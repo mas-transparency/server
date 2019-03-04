@@ -25,13 +25,10 @@ app.get('/', (req, res) => res.send('Hello World!'))
 app.get('/chores', (req, res) => {
     var choresRef = db.collection("chores");
     var queryRef = choresRef.get().then(snapshot => {
-        console.log(snapshot);
         response = {}
         snapshot.forEach(doc => {
             response[doc.id] = doc.data();
-            console.log(doc.id, '=>', doc.data());
         });
-        console.log(response);
         res.json(response);
     });
 });
