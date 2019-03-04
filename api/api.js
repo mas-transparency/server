@@ -36,4 +36,18 @@ app.get('/chores', (req, res) => {
     });
 });
 
+app.get('/assigned-chores', (req, res) => {
+    var assignedChoresRef = db.collection("assigned-chores");
+    var queryRef = assignedChoresRef.get().then(snapshot => {
+        console.log(snapshot);
+        response = {}
+        snapshot.forEach(doc => {
+            response[doc.id] = doc.data();
+            console.log(doc.id, '=>', doc.data());
+        });
+        console.log(response);
+        res.json(response);
+    });
+});
+
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
