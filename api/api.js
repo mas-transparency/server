@@ -58,8 +58,7 @@ app.post('/chores', [
     check('name').exists(),
     check('reward').exists(),
     check('num_chore_points').isNumeric(),
-    check('assigned_user').exists(),
-    check('priority').isNumeric()
+    check('assigned_user').exists()
     ], (req, res) => {
     const errors = validationResult(req);
     // Check to see if the req includes name, reward, and num_chore_points
@@ -70,8 +69,7 @@ app.post('/chores', [
         "name": req.body.name,
         "reward": req.body.reward,
         "num_chore_points": req.body.num_chore_points,
-        "assigned_to": req.body.assigned_user,
-        "priority": req.body.priority
+        "assigned_to": req.body.assigned_user
     }).then(ref => {
         console.log("Added document with " + ref.id);
         return res.status(200).json({
