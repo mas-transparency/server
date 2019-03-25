@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "expo-server-sdk": "^3.2.0",
     "express": "^4.16.4",
     "express-validator": "^5.3.1",
     "firebase-admin": "^7.0.0",

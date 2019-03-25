@@ -1,3 +1,5 @@
+const { Expo } = require('expo-server-sdk');
+const expo = new Expo();
 const express = require('express')
 const bodyParser = require('body-parser')
 const { check, validationResult } = require('express-validator/check');
@@ -35,6 +37,81 @@ app.get('/chores', (req, res) => {
         });
         res.json(response);
     });
+});
+
+app.post('/devices', [
+    jsonParser,
+    check('username').exists(),
+    check('token').exists()
+    ], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+
+    var devicesRef = db.collection('devices').where("token", "==", req.body.token)
+        .get()
+        .then(snapshot => {
+            if (snapshot.size == 0) {
+                db.collection("devices").add({
+                    "user": req.body.username,
+                    "token": req.body.token
+                }).then(ref => {
+                    console.log("Added Device with " + ref.id + "with token " + req.body.token);
+                    return res.status(200).json({
+                        id: ref.id,
+                        data: ref.data
+                    });
+                });
+            } else {
+                return res.status(200).json({
+                    "reason": "token already registered"
+                })
+            }
+        });
+});
+
+// debug endpoint to send messages
+app.post('/notify',[
+    jsonParser,
+    check('title').exists(),
+    check('body').exists(),
+    ], (req, res) => {
+    // First we validate the payload includes title and body
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+    // Then we send the message to all tokens.
+    var devicesRef = db.collection("devices");
+    var queryRef = devicesRef.get().then(snapshot => {
+        var tokens = [];
+        var messages = [];
+        snapshot.forEach(doc => {
+            tokens.push(doc.data().token);
+        })
+        for (let pushToken of tokens) {
+          // Each push token looks like ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+
+          // Check that all your push tokens appear to be valid Expo push tokens
+          if (!Expo.isExpoPushToken(pushToken)) {
+            console.error(`Push token ${pushToken} is not a valid Expo push token`);
+            continue;
+          }
+
+          // Construct a message (see https://docs.expo.io/versions/latest/guides/push-notifications.html)
+          messages.push({
+            to: pushToken,
+            sound: 'default',
+            body: req.body.body,
+            data: { body: req.body.body, title: req.body.title },
+          })
+        }
+        sendMessages(messages);
+        res.json({"status": "success"});
+    });
+
+
 });
 
 app.get('/assigned-chores', (req, res) => {
@@ -79,5 +156,68 @@ app.post('/chores', [
     });
 
 });
+
+// sends a bunch of expo messages
+async function sendMessages(messages) {
+    let chunks = expo.chunkPushNotifications(messages);
+    let tickets = [];
+    (async () => {
+      // Send the chunks to the Expo push notification service. There are
+      // different strategies you could use. A simple one is to send one chunk at a
+      // time, which nicely spreads the load out over time:
+      for (let chunk of chunks) {
+        try {
+          let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          console.log(ticketChunk);
+          tickets.push(...ticketChunk);
+          // NOTE: If a ticket contains an error code in ticket.details.error, you
+          // must handle it appropriately. The error codes are listed in the Expo
+          // documentation:
+          // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    })();
+
+    let receiptIds = [];
+    for (let ticket of tickets) {
+      // NOTE: Not all tickets have IDs; for example, tickets for notifications
+      // that could not be enqueued will have error information and no receipt ID.
+      if (ticket.id) {
+        receiptIds.push(ticket.id);
+      }
+    }
+
+    let receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+    (async () => {
+      // Like sending notifications, there are different strategies you could use
+      // to retrieve batches of receipts from the Expo service.
+      for (let chunk of receiptIdChunks) {
+        try {
+          let receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+          console.log(receipts);
+
+          // The receipts specify whether Apple or Google successfully received the
+          // notification and information about an error, if one occurred.
+          for (let receipt of receipts) {
+            if (receipt.status === 'ok') {
+              continue;
+            } else if (receipt.status === 'error') {
+              console.error(`There was an error sending a notification: ${receipt.message}`);
+              if (receipt.details && receipt.details.error) {
+                // The error codes are listed in the Expo documentation:
+                // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
+                // You must handle the errors appropriately.
+                console.error(`The error code is ${receipt.details.error}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    })();
+}
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
