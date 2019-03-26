@@ -119,10 +119,10 @@ app.post('/login', [
 });
 
 // endpoint for creating group
-app.post('/register', [
+app.post('/group', [
     jsonParser,
-    check('username').exists(),
-    check('password').exists()
+    check('name').exists(),
+    check('idToken').exists()
     ], (req, res) => {
         const errors = validationResult(req);
         console.log(errors)
@@ -130,29 +130,76 @@ app.post('/register', [
             return res.status(422).json({ errors: errors.array() });
         }
 
-        var usersRef = db.collection('users');
-        usersRef.get().then(snapshot => {
-            let found = false;
+        var groupsRef = db.collection('groups');
+        groupsRef.get().then( snapshot => {
+            let exists = false;
             snapshot.forEach(doc => {
-                if (req.body.username == doc.data().username) {
-                    found = true;
+                if (req.body.idToken == doc.data().idToken) {
+                    exists = true;
                 }
             });
             
-            if (found) {
-                return res.status(409).json({
-                    "reason" : "username already exists"
+            if (exists) {
+                return res.status(401).json({
+                    "reason" : "The group already exists"
                 });
             } else {
-                usersRef.add({
-                    "username" : req.body.username,
-                    "password" : req.body.password
+                groupsRef.add({
+                    "name" : req.body.name,
+                    "idToken" : req.body.idToken,
+                    "members" : [req.body.idToken]
                 }).then(ref => {
                     return res.status(200).json({
-                        "sessionID" : req.sessionID
+                        "groupID" : ref.id
                     });
                 });
             }
+    });
+});
+
+// endpoint for creating group
+app.post('/group/add', [
+    jsonParser,
+    check('groupID').exists(),
+    check('idToken').exists(),
+    check('idTokenToAdd').exists()
+    ], (req, res) => {
+        const errors = validationResult(req);
+        console.log(errors)
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+
+        var groupsRef = db.collection('groups');
+        groupsRef.get().then( snapshot => {
+            let valid = false;
+            let refID = null;
+            let members = null;
+            snapshot.forEach(doc => {
+                if (req.body.groupID == doc.id && req.body.idToken == doc.data().idToken) {
+                    refID = doc.id;
+                    members = doc.data().members;
+                    valid = true;
+                }
+            });
+            
+            if (!valid) {
+                return res.status(401).json({
+                    "reason" : "you do not have access to add to this group"
+                });
+            } else if (members.includes(req.body.idTokenToAdd)) {
+                return res.status(401).json({
+                    "reason" : "member already exists in group"
+                });
+            } else {
+                members.push(req.body.idTokenToAdd);
+                groupsRef.doc(refID).update("members", members).then(ref => {
+                    return res.status(200).json({
+                        "message" : "successfully added new member to group"
+                    });
+                });
+            }
+
     });
 });
 
