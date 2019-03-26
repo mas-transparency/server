@@ -2,8 +2,10 @@ const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
 const express = require('express')
 const bodyParser = require('body-parser')
+const session = require('express-session');
 const { check, validationResult } = require('express-validator/check');
 const app = express()
+app.use(session({secret: "secret"}));
 const port = 8080
 
 // create application/json parser
@@ -39,36 +41,86 @@ app.get('/chores', (req, res) => {
     });
 });
 
-app.post('/devices', [
+// endpoint for registration
+// app.post('/register')
+app.post('/register', [
     jsonParser,
     check('username').exists(),
-    check('token').exists()
+    check('password').exists()
     ], (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(422).json({ errors: errors.array() });
-    }
+        const errors = validationResult(req);
+        console.log(errors)
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
 
-    var devicesRef = db.collection('devices').where("token", "==", req.body.token)
-        .get()
-        .then(snapshot => {
-            if (snapshot.size == 0) {
-                db.collection("devices").add({
-                    "user": req.body.username,
-                    "token": req.body.token
-                }).then(ref => {
-                    console.log("Added Device with " + ref.id + "with token " + req.body.token);
-                    return res.status(200).json({
-                        id: ref.id,
-                        data: ref.data
-                    });
+        var usersRef = db.collection('users');
+        usersRef.get().then(snapshot => {
+            let found = false;
+            snapshot.forEach(doc => {
+                if (req.body.username == doc.data().username) {
+                    found = true;
+                }
+            });
+            
+            if (found == true) {
+                return res.status(409).json({
+                    "reason" : "username already exists"
                 });
             } else {
-                return res.status(200).json({
-                    "reason": "token already registered"
-                })
+                usersRef.add({
+                    "username" : req.body.username,
+                    "password" : req.body.password
+                }).then(ref => {
+                    // Need to add session id
+                    console.log(req.sessionID);
+                    return res.status(200).json({
+                        "sessionID" : req.sessionID
+                    });
+                });
             }
-        });
+    });
+});
+
+// endpoint for login
+// app.post('/login')
+app.post('/login', [
+    jsonParser,
+    check('username').exists(),
+    check('password').exists()
+    ], (req, res) => {
+        const errors = validationResult(req);
+        console.log(errors)
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+
+        var usersRef = db.collection('users');
+        usersRef.get().then(snapshot => {
+            let found = false;
+            snapshot.forEach(doc => {
+                console.log(doc.data());
+                if (req.body.username == doc.data().username) {
+                    found = true;
+                }
+            });
+            
+            if (found == true) {
+                return res.status(409).json({
+                    "reason" : "username already exists"
+                });
+            } else {
+                usersRef.add({
+                    "username" : req.body.username,
+                    "password" : req.body.password
+                }).then(ref => {
+                    // Need to add session id
+                    return res.status(200).json({
+                        "message" : "success"
+                    });
+                });
+            }
+    });
 });
 
 // debug endpoint to send messages
