@@ -42,7 +42,6 @@ app.get('/chores', (req, res) => {
 });
 
 // endpoint for registration
-// app.post('/register')
 app.post('/register', [
     jsonParser,
     check('username').exists(),
@@ -63,7 +62,7 @@ app.post('/register', [
                 }
             });
             
-            if (found == true) {
+            if (found) {
                 return res.status(409).json({
                     "reason" : "username already exists"
                 });
@@ -72,8 +71,6 @@ app.post('/register', [
                     "username" : req.body.username,
                     "password" : req.body.password
                 }).then(ref => {
-                    // Need to add session id
-                    console.log(req.sessionID);
                     return res.status(200).json({
                         "sessionID" : req.sessionID
                     });
@@ -83,7 +80,6 @@ app.post('/register', [
 });
 
 // endpoint for login
-// app.post('/login')
 app.post('/login', [
     jsonParser,
     check('username').exists(),
@@ -97,27 +93,20 @@ app.post('/login', [
 
         var usersRef = db.collection('users');
         usersRef.get().then(snapshot => {
-            let found = false;
+            let valid = false;
             snapshot.forEach(doc => {
-                console.log(doc.data());
-                if (req.body.username == doc.data().username) {
-                    found = true;
+                if (req.body.username == doc.data().username && req.body.password == doc.data().password) {
+                    valid = true;
                 }
             });
             
-            if (found == true) {
-                return res.status(409).json({
-                    "reason" : "username already exists"
+            if (!valid) {
+                return res.status(401).json({
+                    "reason" : "invalid username or password"
                 });
             } else {
-                usersRef.add({
-                    "username" : req.body.username,
-                    "password" : req.body.password
-                }).then(ref => {
-                    // Need to add session id
-                    return res.status(200).json({
-                        "message" : "success"
-                    });
+                return res.status(200).json({
+                    "sessionID" : req.sessionID
                 });
             }
     });
