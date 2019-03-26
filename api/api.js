@@ -69,7 +69,8 @@ app.post('/register', [
             } else {
                 usersRef.add({
                     "username" : req.body.username,
-                    "password" : req.body.password
+                    "password" : req.body.password,
+                    "sessionID" : req.sessionID
                 }).then(ref => {
                     return res.status(200).json({
                         "sessionID" : req.sessionID
@@ -94,9 +95,13 @@ app.post('/login', [
         var usersRef = db.collection('users');
         usersRef.get().then(snapshot => {
             let valid = false;
+            let refID = null;
+            let sessionID = null;
             snapshot.forEach(doc => {
                 if (req.body.username == doc.data().username && req.body.password == doc.data().password) {
                     valid = true;
+                    refID = doc.id;
+                    sessionID = doc.data().sessionID;
                 }
             });
             
@@ -105,8 +110,47 @@ app.post('/login', [
                     "reason" : "invalid username or password"
                 });
             } else {
+                console.log(refID);
                 return res.status(200).json({
-                    "sessionID" : req.sessionID
+                    "sessionID" : sessionID
+                });
+            }
+    });
+});
+
+// endpoint for creating group
+app.post('/register', [
+    jsonParser,
+    check('username').exists(),
+    check('password').exists()
+    ], (req, res) => {
+        const errors = validationResult(req);
+        console.log(errors)
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+
+        var usersRef = db.collection('users');
+        usersRef.get().then(snapshot => {
+            let found = false;
+            snapshot.forEach(doc => {
+                if (req.body.username == doc.data().username) {
+                    found = true;
+                }
+            });
+            
+            if (found) {
+                return res.status(409).json({
+                    "reason" : "username already exists"
+                });
+            } else {
+                usersRef.add({
+                    "username" : req.body.username,
+                    "password" : req.body.password
+                }).then(ref => {
+                    return res.status(200).json({
+                        "sessionID" : req.sessionID
+                    });
                 });
             }
     });
