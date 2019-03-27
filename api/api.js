@@ -42,6 +42,38 @@ app.get('/chores', (req, res) => {
     });
 });
 
+app.post('/devices', [
+    jsonParser,
+    check('uid').exists(),
+    check('idToken').exists()
+    ], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+
+    var devicesRef = db.collection('devices').where("idToken", "==", req.body.idToken)
+        .get()
+        .then(snapshot => {
+            if (snapshot.size == 0) {
+                db.collection("devices").add({
+                    'uid': req.body.uid,
+                    'idToken': req.body.idToken
+                }).then(ref => {
+                    console.log("Added Device with " + ref.id + "with token " + req.body.idToken);
+                    return res.status(200).json({
+                        id: ref.id,
+                        data: ref.data
+                    });
+                });
+            } else {
+                return res.status(200).json({
+                    "reason": "token already registered"
+                })
+            }
+        });
+});
+
 // endpoint for registration
 app.post('/register', [
     jsonParser,
@@ -257,7 +289,7 @@ app.post('/notify',[
         var tokens = [];
         var messages = [];
         snapshot.forEach(doc => {
-            tokens.push(doc.data().token);
+            tokens.push(doc.data().idToken);
         })
         for (let pushToken of tokens) {
           // Each push token looks like ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
