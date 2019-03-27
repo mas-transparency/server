@@ -50,7 +50,7 @@ app.post('/devices', [
         return res.status(422).json({ errors: errors.array() });
     }
 
-    var devicesRef = db.collection('devices').where("idToken", "==", req.body.idToken)
+    var devicesRef = db.collection('devices').where("idToken", "==", req.body.idToken).where("uid", "==", req.body.uid)
         .get()
         .then(snapshot => {
             if (snapshot.size == 0) {
@@ -129,11 +129,11 @@ app.post('/group', [
         admin.auth().verifyIdToken(req.body.idToken)
         .then(function(decodedToken) {
             uid = decodedToken.uid;
-            return db.collection('groups').where("uid", "==", uid).get();
+            return db.collection('groups').where("uid", "==", uid).where("name", "==", req.body.name).get();
         }).catch(error => {
             if (req.body.idToken == "1234") {
                 uid = req.body.uid;
-                return db.collection('groups').where("uid", "==", uid).get();
+                return db.collection('groups').where("uid", "==", uid).where("name", "==", req.body.name).get();
             } else {
                 throw res.status(401).json({"error": "unauthorized."})
             }
