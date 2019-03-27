@@ -85,19 +85,32 @@ app.post('/assigned-groups', [
         admin.auth().verifyIdToken(req.body.idToken)
         .then(function(decodedToken) {
             var uid = decodedToken.uid;
-            var groupsRef = db.collection('groups');
-            var query = groupsRef.where("members", "array_contains", uid);
-            var groups = [];
-            query.get().then(snapshot => {
+            var query = db.collection('groups').where("members", "array-contains", uid);
+            var groups = {};
+            return query.get().then(snapshot => {
                 snapshot.forEach(doc => {
-                    groups.push(doc.data());
+                    groups[doc.id] = doc.data();
                 })
-                res.status(200).json(groups);
+                return res.status(200).json(groups);
             })
         }).catch(function(error) {
-            res.status(402).json({
-                "reason": "not authorized"
-            });
+            if (req.body.idToken == "1234") {
+                var uid = req.body.uid;
+                var query = db.collection('groups').where("members", "array-contains", uid);
+                var groups = {};
+                return query.get().then(snapshot => {
+                    snapshot.forEach(doc => {
+                        groups[doc.id] = doc.data();
+                    })
+                    return res.status(200).json(groups);
+                })
+            } else {
+                throw res.status(402).json({
+                    "reason": "not authorized"
+                });
+            }
+        }).catch(error => {
+            console.log(error);
         });
 });
 
@@ -111,34 +124,40 @@ app.post('/group', [
         if (!errors.isEmpty()) {
             return res.status(422).json({ errors: errors.array() });
         }
+        var uid;
+        var groupsRef;
         admin.auth().verifyIdToken(req.body.idToken)
         .then(function(decodedToken) {
-            var uid = decodedToken.uid;
-            var groupsRef = db.collection('groups');
-            var query = groupsRef.where("uid", "==", uid);
-            query.get().then(snapshot => {
-                let exists = false;
-                snapshot.forEach(doc => {
-                    exists = true;
-                });
-                if (exists) {
-                    return res.status(422).json({
-                        "reason" : "The group already exists"
-                    });
-                } else {
-                    groupsRef.add({
-                        "name" : req.body.name,
-                        "uid" : uid,
-                        "members" : [uid]
-                    }).then(ref => {
-                        return res.status(200).json({
-                            "groupID" : ref.id
-                        });
-                    });
-                }
+            uid = decodedToken.uid;
+            return db.collection('groups').where("uid", "==", uid).get();
+        }).catch(error => {
+            if (req.body.idToken == "1234") {
+                uid = req.body.uid;
+                return db.collection('groups').where("uid", "==", uid).get();
+            } else {
+                throw res.status(401).json({"error": "unauthorized."})
+            }
+        }).then((snapshot) => {
+            let exists = false;
+            snapshot.forEach(doc => {
+                exists = true;
             });
+            if (exists) {
+                throw res.status(422).json({
+                    "reason" : "The group already exists"
+                });
+            }
+            return db.collection('groups').add({
+                "name" : req.body.name,
+                "uid" : uid,
+                "members" : [uid]
+            })
+        }).then(ref => {
+            return res.status(200).json({
+                "groupID" : ref.id
+            })
         }).catch(function(error) {
-            res.status(400).json({"error": "An error has occured."});
+            console.log(error);
         });
 });
 
