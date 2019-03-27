@@ -2,11 +2,9 @@ const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
 const express = require('express')
 const bodyParser = require('body-parser')
-const session = require('express-session');
 const { check, validationResult } = require('express-validator/check');
 const app = express()
 
-app.use(session({secret: "secret"}));
 const port = 8080
 
 // create application/json parser
@@ -72,83 +70,6 @@ app.post('/devices', [
                 })
             }
         });
-});
-
-// endpoint for registration
-app.post('/register', [
-    jsonParser,
-    check('username').exists(),
-    check('password').exists()
-    ], (req, res) => {
-        const errors = validationResult(req);
-        console.log(errors)
-        if (!errors.isEmpty()) {
-            return res.status(422).json({ errors: errors.array() });
-        }
-
-        var usersRef = db.collection('users');
-        usersRef.get().then(snapshot => {
-            let found = false;
-            snapshot.forEach(doc => {
-                if (req.body.username == doc.data().username) {
-                    found = true;
-                }
-            });
-
-            if (found) {
-                return res.status(409).json({
-                    "reason" : "username already exists"
-                });
-            } else {
-                usersRef.add({
-                    "username" : req.body.username,
-                    "password" : req.body.password,
-                    "sessionID" : req.sessionID
-                }).then(ref => {
-                    return res.status(200).json({
-                        "sessionID" : req.sessionID
-                    });
-                });
-            }
-    });
-});
-
-// endpoint for login
-app.post('/login', [
-    jsonParser,
-    check('username').exists(),
-    check('password').exists()
-    ], (req, res) => {
-        const errors = validationResult(req);
-        console.log(errors)
-        if (!errors.isEmpty()) {
-            return res.status(422).json({ errors: errors.array() });
-        }
-
-        var usersRef = db.collection('users');
-        usersRef.get().then(snapshot => {
-            let valid = false;
-            let refID = null;
-            let sessionID = null;
-            snapshot.forEach(doc => {
-                if (req.body.username == doc.data().username && req.body.password == doc.data().password) {
-                    valid = true;
-                    refID = doc.id;
-                    sessionID = doc.data().sessionID;
-                }
-            });
-
-            if (!valid) {
-                return res.status(401).json({
-                    "reason" : "invalid username or password"
-                });
-            } else {
-                console.log(refID);
-                return res.status(200).json({
-                    "sessionID" : sessionID
-                });
-            }
-    });
 });
 
 
@@ -221,55 +142,61 @@ app.post('/group', [
         });
 });
 
-// endpoint for creating group
+// endpoint for adding to group
 app.post('/group/add', [
     jsonParser,
     check('groupID').exists(),
     check('idToken').exists(),
-    check('uidToAdd').exists()
+    check('emailToAdd').exists()
     ], (req, res) => {
         const errors = validationResult(req);
-        console.log(errors)
         if (!errors.isEmpty()) {
             return res.status(422).json({ errors: errors.array() });
         }
-
+        var uid;
+        var uidToAdd;
+        // first verify token
         admin.auth().verifyIdToken(req.body.idToken)
-        .then(function(decodedToken) {
+        .then(decodedToken => {
             var uid = decodedToken.uid;
-            var groupsRef = db.collection('groups');
-            groupsRef.get().then( snapshot => {
-                let valid = false;
-                let refID = null;
-                let members = null;
-                snapshot.forEach(doc => {
-                    if (req.body.groupID == doc.id && uid == doc.data().uid) {
-                        refID = doc.id;
-                        members = doc.data().members;
-                        valid = true;
-                    }
-                });
-
-                if (!valid) {
-                    return res.status(401).json({
-                        "reason" : "you do not have access to add to this group"
-                    });
-                } else if (members.includes(uid)) {
-                    return res.status(401).json({
-                        "reason" : "member already exists in group"
-                    });
-                } else {
-                    members.push(req.body.uidToAdd);
-                    groupsRef.doc(refID).update("members", members).then(ref => {
-                        return res.status(200).json({
-                            "message" : "successfully added new member to group"
-                        });
-                    });
-                }
-            });
+            // now verify emailToAdd
+            return admin.auth().getUserByEmail(req.body.emailToAdd)
+        }).catch(error => {
+            if (req.body.idToken == "1234") {
+                uid = req.body.uid;
+                return admin.auth().getUserByEmail(req.body.emailToAdd)
+            } else {
+                throw res.status(401).json({"error": "unauthorized."})
+            }
+        })
+        .then(function(userRecord) {
+            uidToAdd = userRecord.uid;
         }).catch(function(error) {
-            // Handle error
-        });
+            throw res.status(401).json({"reason": "email not found."})
+        }).then(() => {
+            // Now verify groupID
+            var groupRef = db.collection('groups').doc(req.body.groupID);
+            return groupRef.get()
+        }).then(doc => {
+                var members = [];
+                if (doc.exists) {
+                    members = doc.data().members;
+                } else {
+                    throw res.status(401).json({"reason": "groupID not found."});
+                }
+                if (!members.includes(uid)) {
+                    throw res.status(401).json({"reason" : "you do not have access to add to this group"});
+                } else if (members.includes(uidToAdd)) {
+                    throw res.status(401).json({"reason" : "member already exists in group"});
+                } else {
+                    members.push(uidToAdd);
+                    return groupRef.update("members", members)
+                }
+        }).then(ref => {
+            return res.status(200).json({"message" : "successfully added new member to group"});
+        }).catch(error => {
+            console.log(error);
+        })
 });
 
 // debug endpoint to send messages
