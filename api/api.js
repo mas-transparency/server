@@ -62,7 +62,7 @@ app.post('/register', [
                     found = true;
                 }
             });
-            
+
             if (found) {
                 return res.status(409).json({
                     "reason" : "username already exists"
@@ -105,7 +105,7 @@ app.post('/login', [
                     sessionID = doc.data().sessionID;
                 }
             });
-            
+
             if (!valid) {
                 return res.status(401).json({
                     "reason" : "invalid username or password"
@@ -119,6 +119,35 @@ app.post('/login', [
     });
 });
 
+
+// endpoint for querying groups associated with a particular user
+app.post('/assigned-groups', [
+    jsonParser,
+    check('idToken').exists()
+    ], (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+        admin.auth().verifyIdToken(req.body.idToken)
+        .then(function(decodedToken) {
+            var uid = decodedToken.uid;
+            var groupsRef = db.collection('groups');
+            var query = groupsRef.where("members", "array_contains", uid);
+            var groups = [];
+            query.get().then(snapshot => {
+                snapshot.forEach(doc => {
+                    groups.push(doc.data());
+                })
+                res.status(200).json(groups);
+            })
+        }).catch(function(error) {
+            res.status(402).json({
+                "reason": "not authorized"
+            });
+        });
+});
+
 // endpoint for creating group
 app.post('/group', [
     jsonParser,
@@ -126,24 +155,21 @@ app.post('/group', [
     check('idToken').exists()
     ], (req, res) => {
         const errors = validationResult(req);
-        console.log(errors)
         if (!errors.isEmpty()) {
             return res.status(422).json({ errors: errors.array() });
         }
-        admin.auth().verifyIdToken(idToken)
+        admin.auth().verifyIdToken(req.body.idToken)
         .then(function(decodedToken) {
             var uid = decodedToken.uid;
             var groupsRef = db.collection('groups');
-            groupsRef.get().then( snapshot => {
+            var query = groupsRef.where("uid", "==", uid);
+            query.get().then(snapshot => {
                 let exists = false;
                 snapshot.forEach(doc => {
-                    if (uid == doc.data().uid) {
-                        exists = true;
-                    }
+                    exists = true;
                 });
-                
                 if (exists) {
-                    return res.status(401).json({
+                    return res.status(422).json({
                         "reason" : "The group already exists"
                     });
                 } else {
@@ -159,9 +185,8 @@ app.post('/group', [
                 }
             });
         }).catch(function(error) {
-            // Handle error
+            res.status(400).json({"error": "An error has occured."});
         });
-        
 });
 
 // endpoint for creating group
@@ -177,7 +202,7 @@ app.post('/group/add', [
             return res.status(422).json({ errors: errors.array() });
         }
 
-        admin.auth().verifyIdToken(idToken)
+        admin.auth().verifyIdToken(req.body.idToken)
         .then(function(decodedToken) {
             var uid = decodedToken.uid;
             var groupsRef = db.collection('groups');
@@ -192,7 +217,7 @@ app.post('/group/add', [
                         valid = true;
                     }
                 });
-                
+
                 if (!valid) {
                     return res.status(401).json({
                         "reason" : "you do not have access to add to this group"
