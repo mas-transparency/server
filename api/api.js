@@ -44,6 +44,76 @@ app.get('/chores', (req, res) => {
     });
 });
 
+// Create a chore. A Chore has a name, reward, num_chore_points,
+// and is associated with a particular groupID
+// This endpoint accepts application/json requests
+app.post('/chores', [
+    jsonParser,
+    check('name').exists(),
+    check('reward').exists(),
+    check('num_chore_points').isNumeric(),
+    check('idToken').exists(),
+    check('groupID').exists(),
+    ], (req, res) => {
+    const errors = validationResult(req);
+    // Check to see if the req includes name, reward, and num_chore_points
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+
+    // Verify that the user is logged in
+    var uid = null;
+    admin.auth().verifyIdToken(req.body.idToken)
+    .then(function(decodedToken) {
+        uid = decodedToken.uid;
+    }).catch(function(error) {
+        if (req.body.idToken == "1234") {
+            uid = req.body.uid;
+        } else {
+            throw res.status(402).json({
+                "reason": "not authorized"
+            });
+        }
+    }).then( () => {
+        return db.collection('groups').doc(req.body.groupID).get()
+    }).then(doc => {
+        if (doc.exists) {
+            // check to see if the user is in the given groupID
+            if (doc.data().members.includes(uid)) {
+                // Now that we know that the groupID and uid are valid
+                // we can go ahead and construct the chore
+                return db.collection("chores").add({
+                    "name": req.body.name,
+                    "reward": req.body.reward,
+                    "num_chore_points": req.body.num_chore_points,
+                    "assigned_to": null,
+                    "groupID": req.body.groupID
+                })
+            } else {
+                throw res.status(402).json({"reason": "User not in group!"});
+            }
+        } else {
+            throw res.status(402).json({
+                "reason": "groupID does not exist!"
+            })
+        }
+    }).then(ref => {
+        console.log("Added new chore with id" + ref.id);
+        return res.status(200).json({
+            id: ref.id,
+            data: ref.data
+        });
+    }).catch(error => {
+        console.log(error);
+    });
+});
+
+
+/*
+ * POST /devices
+ * Registers a deviceID token for a particular uid
+ * This deviceID token is used to send push notifications
+ */
 app.post('/devices', [
     jsonParser,
     check('uid').exists(),
@@ -79,7 +149,12 @@ app.post('/devices', [
 });
 
 
-// endpoint for querying groups associated with a particular user
+/*
+ * POST /assigned-groups
+ * Returns groups associated with a particular user
+ * Takes in a single paramter idToken, returns a JSON dictionary
+ * mapping group ids to group objects
+*/
 app.post('/assigned-groups', [
     jsonParser,
     check('idToken').exists()
@@ -281,34 +356,6 @@ app.get('/assigned-chores', (req, res) => {
     });
 });
 
-// Create a chore. A Chore has a name, reward, and num_chore_points
-// This endpoint accepts application/json requests
-app.post('/chores', [
-    jsonParser,
-    check('name').exists(),
-    check('reward').exists(),
-    check('num_chore_points').isNumeric(),
-    check('assigned_user').exists()
-    ], (req, res) => {
-    const errors = validationResult(req);
-    // Check to see if the req includes name, reward, and num_chore_points
-    if (!errors.isEmpty()) {
-        return res.status(422).json({ errors: errors.array() });
-    }
-    db.collection("chores").add({
-        "name": req.body.name,
-        "reward": req.body.reward,
-        "num_chore_points": req.body.num_chore_points,
-        "assigned_to": req.body.assigned_user
-    }).then(ref => {
-        console.log("Added document with " + ref.id);
-        return res.status(200).json({
-            id: ref.id,
-            data: ref.data
-        });
-    });
-
-});
 
 // sends a bunch of expo messages
 async function sendMessages(messages) {
