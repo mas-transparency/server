@@ -59,6 +59,7 @@ app.post('/chores/edit', [
     check('assigned_to').exists(),
     check('idToken').exists(),
     check('groupID').exists(),
+    check('duration').isNumeric(),
     check('choreID').exists()
     ], (req, res) => {
     const errors = validationResult(req);
@@ -92,6 +93,7 @@ app.post('/chores/edit', [
                 "num_chore_points": req.body.num_chore_points,
                 "assigned_to": req.body.assigned_to,
                 "idToken" : req.body.idToken,
+                "duration" : req.body.duration,
                 "groupID": req.body.groupID
             });
         } else {
@@ -161,6 +163,7 @@ app.post('/chores', [
     check('name').exists(),
     check('reward').exists(),
     check('num_chore_points').isNumeric(),
+    check('duration').isNumeric(),
     check('idToken').exists(),
     check('groupID').exists(),
     ], (req, res) => {
@@ -195,6 +198,7 @@ app.post('/chores', [
                     "name": req.body.name,
                     "reward": req.body.reward,
                     "num_chore_points": req.body.num_chore_points,
+                    "duration", req.body.duration,
                     "assigned_to": null,
                     "groupID": req.body.groupID
                 })
