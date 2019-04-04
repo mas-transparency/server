@@ -13,8 +13,8 @@ fields specified.
 | name             | String    | yes       |             |
 | reward           | String    | yes       |             |
 | num_chore_points | Numeric   | yes       |             |
-| assigned_to      | String    | yes       |             |
-| priority         | Numeric   | yes       |             |
+| idToken      | String    | yes       |             |
+| groupID      | String    | yes       |             | 
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
 
 ## POST /groups
