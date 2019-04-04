@@ -28,7 +28,11 @@ const db = admin.firestore();
 
 app.get('/', (req, res) => res.send('Hello World!'))
 
-// bind endpoints to queries
+/*
+ * GET /chores
+ * Returns JSON of all chores
+ * TODO: setup based on tokens/uid
+ */
 app.get('/chores', (req, res) => {
     var choresRef = db.collection("chores");
     var queryRef = choresRef.get().then(snapshot => {
@@ -50,25 +54,27 @@ app.post('/devices', [
         return res.status(422).json({ errors: errors.array() });
     }
 
-    var devicesRef = db.collection('devices').where("idToken", "==", req.body.idToken).where("uid", "==", req.body.uid)
+    var devicesRef = db.collection('devices')
+        .where("idToken", "==", req.body.idToken)
+        .where("uid", "==", req.body.uid)
         .get()
         .then(snapshot => {
             if (snapshot.size == 0) {
-                db.collection("devices").add({
+                return db.collection("devices").add({
                     'uid': req.body.uid,
                     'idToken': req.body.idToken
-                }).then(ref => {
-                    console.log("Added Device with " + ref.id + "with token " + req.body.idToken);
-                    return res.status(200).json({
-                        id: ref.id,
-                        data: ref.data
-                    });
-                });
-            } else {
-                return res.status(200).json({
-                    "reason": "token already registered"
                 })
+            } else {
+                throw res.status(401).json({"reason": "token already registered"})
             }
+        }).then(ref => {
+            console.log("Added Device with " + ref.id + "with token " + req.body.idToken);
+            return res.status(200).json({
+                id: ref.id,
+                data: ref.data
+            });
+        }).catch( error => {
+            console.log("Error" + error);
         });
 });
 
