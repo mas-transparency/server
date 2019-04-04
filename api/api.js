@@ -110,6 +110,52 @@ app.post('/chores/edit', [
     });
 });
 
+app.post('/chores/delete', [
+    jsonParser,
+    check('idToken').exists(),
+    check('choreID').exists()
+    ], (req, res) => {
+    const errors = validationResult(req);
+    // Check to see if the req includes name, reward, and num_chore_points
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+
+    // Verify that the user is logged in
+    var uid = null;
+    admin.auth().verifyIdToken(req.body.idToken)
+    .then(function(decodedToken) {
+        uid = decodedToken.uid;
+    }).catch(function(error) {
+        if (req.body.idToken == "1234") {
+            console.log("here");
+            uid = req.body.uid;
+        } else {
+            throw res.status(402).json({
+                "reason": "not authorized"
+            });
+        }
+    }).then( () => {
+        return db.collection('chores').doc(req.body.choreID).get()
+    }).then(doc => {
+        if (doc.exists) {
+            return db.collection("chores").doc(doc.id).delete();
+        } else {
+            throw res.status(402).json({
+                "reason": "groupID does not exist!"
+            })
+        }
+    }).then(ref => {
+        console.log("Deleted chore");
+        return res.status(200).json({
+            id: ref.id,
+            data: ref.data
+        });
+    }).catch(error => {
+        console.log(error);
+    });
+});
+
 app.post('/chores', [
     jsonParser,
     check('name').exists(),

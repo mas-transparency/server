@@ -29,6 +29,13 @@ Edits a chore. Requires a JSON body payload with the following fields specified.
 | groupID      | String    | yes       |             | 
 | choreID      | String    | yes       |             | 
 
+## POST /chores/delete
+Deletes a chore. Requires a JSON body payload with the following fields specified.
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| idToken      | String    | yes       |             |
+| choreID      | String    | yes       |             | 
+
 ## POST /groups
 Creates a Group. Requires a JSON body payload with the following fields specified
 
