@@ -34,6 +34,7 @@ app.get('/', (req, res) => res.send('Hello World!'))
  * TODO: setup based on tokens/uid
  */
 app.get('/chores', (req, res) => {
+    var groupId = req.query.group_id;
     var choresRef = db.collection("chores");
     var queryRef = choresRef.get().then(snapshot => {
         response = {}
@@ -288,7 +289,7 @@ app.post('/chores', [
     check('name').exists(),
     check('reward').exists(),
     check('num_chore_points').isNumeric(),
-    check('assigned_user').exists()
+    check('group_id').exists()
     ], (req, res) => {
     const errors = validationResult(req);
     // Check to see if the req includes name, reward, and num_chore_points
@@ -299,7 +300,7 @@ app.post('/chores', [
         "name": req.body.name,
         "reward": req.body.reward,
         "num_chore_points": req.body.num_chore_points,
-        "assigned_to": req.body.assigned_user
+        "group_id" : req.body.group_id
     }).then(ref => {
         console.log("Added document with " + ref.id);
         return res.status(200).json({
@@ -307,7 +308,34 @@ app.post('/chores', [
             data: ref.data
         });
     });
+});
 
+app.post('/chores/edit', [
+    jsonParser,
+    check('name').exists(),
+    check('reward').exists(),
+    check('num_chore_points').isNumeric(),
+    check('assigned_user').exists(),
+    check('group_id').exists()
+    ], (req, res) => {
+    const errors = validationResult(req);
+    // Check to see if the req includes name, reward, and num_chore_points
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+    db.collection("chores").add({
+        "name": req.body.name,
+        "reward": req.body.reward,
+        "num_chore_points": req.body.num_chore_points,
+        "assigned_to" : req.body.assigned_user,
+        "group_id" : req.body.group_id
+    }).then(ref => {
+        console.log("Added document with " + ref.id);
+        return res.status(200).json({
+            id: ref.id,
+            data: ref.data
+        });
+    });
 });
 
 // sends a bunch of expo messages
