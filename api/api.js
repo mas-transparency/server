@@ -131,12 +131,9 @@ app.post('/chores/delete', [
         uid = decodedToken.uid;
     }).catch(function(error) {
         if (req.body.idToken == "1234") {
-            console.log("here");
             uid = req.body.uid;
         } else {
-            throw res.status(402).json({
-                "reason": "not authorized"
-            });
+            throw res.status(402).json({"reason": "not authorized"});
         }
     }).then( () => {
         return db.collection('chores').doc(req.body.choreID).get()
@@ -144,12 +141,9 @@ app.post('/chores/delete', [
         if (doc.exists) {
             return db.collection("chores").doc(doc.id).delete();
         } else {
-            throw res.status(402).json({
-                "reason": "groupID does not exist!"
-            })
+            throw res.status(402).json({"reason": "groupID does not exist!"})
         }
     }).then(ref => {
-        console.log("Deleted chore");
         return res.status(200).json({
             id: ref.id,
             data: ref.data
@@ -428,7 +422,7 @@ app.post('/notify',[
     var devicesRef = db.collection("devices");
     var queryRef = devicesRef.get().then(snapshot => {
         var tokens = [];
-        var promises = [];
+        var messages = [];
         snapshot.forEach(doc => {
             tokens.push(doc.data().idToken);
         })
@@ -442,23 +436,14 @@ app.post('/notify',[
           }
 
           // Construct a message (see https://docs.expo.io/versions/latest/guides/push-notifications.html)
-          promises.push(
-              rp.post({
-                url: 'https://exp.host/--/api/v2/push/send',
-                headers: {
-                  'Accept': 'application/json',
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    to: pushToken,
-                    sound: 'default',
-                    body: req.body.body,
-                    data: { body: req.body.body, title: req.body.title}
-                })
-            })
-          )
+          messages.push({
+              to: pushToken,
+              sound: 'default',
+              body: req.body.body,
+              data: {body: req.body.body, title: req.body.title}
+          })
         }
-        return Promise.all(promises);
+        return sendMessages(messages);
     }).then(response => {
         res.status(200).json(response);
         console.log(response);
@@ -467,6 +452,23 @@ app.post('/notify',[
         res.status(401).json(error);
     });
 });
+
+function sendMessages(messages) {
+    var promises = []
+    for (let message of messages) {
+        promises.push(
+            rp.post({
+              url: 'https://exp.host/--/api/v2/push/send',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: message
+          })
+        )
+      }
+    return Promise.all(promises);
+}
 
 app.get('/assigned-chores', (req, res) => {
     var assignedChoresRef = db.collection("assigned-chores");
