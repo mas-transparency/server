@@ -1,8 +1,8 @@
 # Chores
 Currently Implemented Endpoints:
 
-## GET /chores
-Returns a JSON list of all chores.
+## GET /chores?groupID=exampleGroupID
+Returns a JSON list of all chores associated with a groupID
 
 ## POST /chores
 Creates a Chore. Requires a JSON body payload with the following
@@ -13,9 +13,30 @@ fields specified.
 | name             | String    | yes       |             |
 | reward           | String    | yes       |             |
 | num_chore_points | Numeric   | yes       |             |
+| duration | Numeric   | yes       |             |
 | idToken      | String    | yes       |             |
 | groupID      | String    | yes       |             | 
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
+
+## POST /chores/edit
+Edits a chore. Requires a JSON body payload with the following fields specified.
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| name             | String    | yes       |             |
+| reward           | String    | yes       |             |
+| num_chore_points | Numeric   | yes       |             |
+| duration | Numeric   | yes       |             |
+| assigned_to | String | yes       |             |
+| idToken      | String    | yes       |             |
+| groupID      | String    | yes       |             | 
+| choreID      | String    | yes       |             | 
+
+## POST /chores/delete
+Deletes a chore. Requires a JSON body payload with the following fields specified.
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| idToken      | String    | yes       |             |
+| choreID      | String    | yes       |             | 
 
 ## POST /groups
 Creates a Group. Requires a JSON body payload with the following fields specified
