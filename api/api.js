@@ -225,29 +225,36 @@ app.post('/chores', [
 app.post('/devices', [
     jsonParser,
     check('uid').exists(),
-    check('idToken').exists()
+    check('deviceToken').exists()
     ], (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(422).json({ errors: errors.array() });
     }
 
-    // Check to see if a particular token has already been registered
-    var devicesRef = db.collection('devices')
-        .where("idToken", "==", req.body.idToken)
-        .where("uid", "==", req.body.uid)
-        .get()
-        .then(snapshot => {
-            if (snapshot.size == 0) {
-                return db.collection("devices").add({
-                    'uid': req.body.uid,
-                    'idToken': req.body.idToken
-                })
+    // obtain the document corresponding to the given uid
+    var devices = [];
+    var devicesRef = db.collection('devices').doc(req.body.uid)
+    devicesRef.get().then(doc => {
+            if (doc.exists) {
+                // get the current document, and add to the deviceToken array
+                var devices = doc.data().deviceTokens;
+                if (devices.includes(req.body.deviceToken)) {
+                    throw res.status(401).json({"reason": "token already registered"})
+                } else {
+                    devices.push(req.body.deviceToken);
+                    // update the devices
+                    return devicesRef.update("deviceTokens", devices);
+                }
             } else {
-                throw res.status(401).json({"reason": "token already registered"})
+                return db.collection("devices").doc(req.body.uid).set({
+                    'deviceToken': 'deviceToken'
+                });
+                var devices = [req.body.deviceToken]
+                return devicesRef.update("deviceTokens", devices)
             }
         }).then(ref => {
-            console.log("Added Device with " + ref.id + "with token " + req.body.idToken);
+            console.log("Added Device with " + ref.id + "with token " + req.body.deviceToken);
             return res.status(200).json({
                 id: ref.id,
                 data: ref.data
@@ -368,6 +375,7 @@ app.post('/group/add', [
         admin.auth().verifyIdToken(req.body.idToken)
         .then(decodedToken => {
             var uid = decodedToken.uid;
+            var members = [];
             // now verify emailToAdd
             return admin.auth().getUserByEmail(req.body.emailToAdd)
         }).catch(error => {
@@ -387,7 +395,6 @@ app.post('/group/add', [
             var groupRef = db.collection('groups').doc(req.body.groupID);
             return groupRef.get()
         }).then(doc => {
-                var members = [];
                 if (doc.exists) {
                     members = doc.data().members;
                 } else {
@@ -402,6 +409,8 @@ app.post('/group/add', [
                     return groupRef.update("members", members)
                 }
         }).then(ref => {
+            // send notifications to all other members that a user has been added to the group.
+            // We want to obtain the corresponding tokens for each uid
             return res.status(200).json({"message" : "successfully added new member to group"});
         }).catch(error => {
             console.log(error);
@@ -425,7 +434,12 @@ app.post('/notify',[
         var tokens = [];
         var messages = [];
         snapshot.forEach(doc => {
-            tokens.push(doc.data().idToken);
+            console.log(doc);
+            console.log(deviceTokens);
+            var deviceTokens = doc.data().deviceTokens;
+            for(let deviceToken of deviceTokens) {
+                tokens.push(deviceToken);
+            }
         })
         for (let pushToken of tokens) {
           // Each push token looks like ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
