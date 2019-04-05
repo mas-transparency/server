@@ -87,7 +87,7 @@ app.post('/chores/edit', [
         return db.collection('chores').doc(req.body.choreID).get()
     }).then(doc => {
         if (doc.exists) {
-            
+
             return db.collection("chores").doc(doc.id).update({
                 "name": req.body.name,
                 "reward": req.body.reward,
@@ -199,7 +199,7 @@ app.post('/chores', [
                     "name": req.body.name,
                     "reward": req.body.reward,
                     "num_chore_points": req.body.num_chore_points,
-                    "duration", req.body.duration,
+                    "duration": req.body.duration,
                     "assigned_to": null,
                     "groupID": req.body.groupID
                 })
