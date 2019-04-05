@@ -232,6 +232,7 @@ app.post('/devices', [
         return res.status(422).json({ errors: errors.array() });
     }
 
+    // Check to see if a particular token has already been registered
     var devicesRef = db.collection('devices')
         .where("idToken", "==", req.body.idToken)
         .where("uid", "==", req.body.uid)

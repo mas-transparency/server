@@ -15,11 +15,12 @@ fields specified.
 | num_chore_points | Numeric   | yes       |             |
 | duration | Numeric   | yes       |             |
 | idToken      | String    | yes       |             |
-| groupID      | String    | yes       |             | 
+| groupID      | String    | yes       |             |
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
 
 ## POST /chores/edit
 Edits a chore. Requires a JSON body payload with the following fields specified.
+
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
 | name             | String    | yes       |             |
@@ -28,15 +29,16 @@ Edits a chore. Requires a JSON body payload with the following fields specified.
 | duration | Numeric   | yes       |             |
 | assigned_to | String | yes       |             |
 | idToken      | String    | yes       |             |
-| groupID      | String    | yes       |             | 
-| choreID      | String    | yes       |             | 
+| groupID      | String    | yes       |             |
+| choreID      | String    | yes       |             |
 
 ## POST /chores/delete
 Deletes a chore. Requires a JSON body payload with the following fields specified.
+
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
 | idToken      | String    | yes       |             |
-| choreID      | String    | yes       |             | 
+| choreID      | String    | yes       |             |
 
 ## POST /groups
 Creates a Group. Requires a JSON body payload with the following fields specified
@@ -89,6 +91,7 @@ The API will return a JSON dictionary mapping group-ids to members in the follow
 
 ## POST /devices
 Registers a deviceID token for a particular uid. Used to send push notifications.
+
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
 | idToken          | String    | yes       |             |
