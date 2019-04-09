@@ -7,6 +7,20 @@ Returns a JSON list of all chores associated with a groupID
 ## GET /users?groupID=exampleGroupID
 Returns a JSON list of all users associated with a groupID
 
+## POST /completedChore
+Creates a Chore. Requires a JSON body payload with the following
+fields specified.
+
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| name             | String    | yes       |             |
+| reward           | String    | yes       |             |
+| num_chore_points | Numeric   | yes       |             |
+| duration | Numeric   | yes       |             |
+| idToken      | String    | yes       |             |
+| groupID      | String    | yes       |             |
+Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
+
 ## POST /chores
 Creates a Chore. Requires a JSON body payload with the following
 fields specified.

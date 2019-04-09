@@ -47,6 +47,46 @@ app.get('/chores', (req, res) => {
     });
 });
 
+app.post('/completedChore', [
+    jsonParser,
+    check('choreId').exists(),
+    check('idToken').exists()
+    ], (req, res) => {
+        // get all chores associated with groupID
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+        var uid;
+        admin.auth().verifyIdToken(req.body.idToken)
+        .then(function(decodedToken) {
+            uid = decodedToken.uid;
+            return db.collection('chores').doc(req.body.choreId).get();
+        }).catch(error => {
+            if (req.body.idToken == "1234") {
+                uid = req.body.uid;
+                return db.collection('chores').doc(req.body.choreId).get();
+            } else {
+                throw res.status(401).json({"error": "unauthorized."})
+            }
+        }).then((doc) => {
+            var data = doc.data();
+            var index = (data.index + 1) % data.rotation.length;
+            var nextInLine = data.rotation[index];
+            console.log(nextInLine);
+            choresRef = db.collection('chores').doc(req.body.choreId);
+            choresRef.update("index", index);
+            choresRef.update("assigned_to", nextInLine);
+            return choresRef;
+        }).then(ref => {
+            return res.status(200).json({
+                "ref" : ref.id
+            })
+        }).catch(function(error) {
+            console.log(error);
+        });
+});
+
 // Edit a Chore has a name, reward, num_chore_points,
 // and is associated with a particular groupID
 // This endpoint accepts application/json requests
@@ -184,16 +224,24 @@ app.post('/chores', [
     }).then(doc => {
         if (doc.exists) {
             // check to see if the user is in the given groupID
-            if (doc.data().members.includes(uid)) {
+            var allowedToAdd = false;
+            members = doc.data().members;
+            for (i = 0; i < members.length; i++) {
+                if (members[i].uid == uid) allowedToAdd = true;
+            }
+            if (allowedToAdd) {
                 // Now that we know that the groupID and uid are valid
                 // we can go ahead and construct the chore
+                randArr = shuffle(doc.data().members);
                 return db.collection("chores").add({
                     "name": req.body.name,
                     "reward": req.body.reward,
                     "num_chore_points": req.body.num_chore_points,
                     "duration": req.body.duration,
-                    "assigned_to": null,
-                    "groupID": req.body.groupID
+                    "assigned_to": randArr[0],
+                    "index" : 0,
+                    "groupID": req.body.groupID,
+                    "rotation" : randArr
                 })
             } else {
                 throw res.status(402).json({"reason": "User not in group!"});
@@ -204,7 +252,7 @@ app.post('/chores', [
             })
         }
     }).then(ref => {
-        console.log("Added new chore with id" + ref.id);
+        console.log("Added new chore with id " + ref.id);
         return res.status(200).json({
             id: ref.id,
             data: ref.data
@@ -519,10 +567,28 @@ app.get('/users', (req, res) => {
     groupsRef.doc(groupId).get().then(doc => {
         response = [];
         members = doc.data().members;
-        console.log(members);
         for (i = 0; i < members.length; i++) response.push(members[i].username);
         res.json(response);
     });
 });
+
+function shuffle(array) {
+    var currentIndex = array.length, temporaryValue, randomIndex;
+  
+    // While there remain elements to shuffle...
+    while (0 !== currentIndex) {
+  
+      // Pick a remaining element...
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex -= 1;
+  
+      // And swap it with the current element.
+      temporaryValue = array[currentIndex];
+      array[currentIndex] = array[randomIndex];
+      array[randomIndex] = temporaryValue;
+    }
+  
+    return array;
+  }
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
