@@ -27,8 +27,6 @@ const auth = admin.auth();
 // DB service
 const db = admin.firestore();
 
-app.get('/', (req, res) => res.send('Hello World!'))
-
 /*
  * GET /chores
  * Returns JSON of all chores
@@ -315,7 +313,8 @@ app.post('/assigned-groups', [
 app.post('/group', [
     jsonParser,
     check('name').exists(),
-    check('idToken').exists()
+    check('idToken').exists(),
+    check('username').exists()
     ], (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -339,15 +338,20 @@ app.post('/group', [
             snapshot.forEach(doc => {
                 exists = true;
             });
+
             if (exists) {
                 throw res.status(422).json({
                     "reason" : "The group already exists"
                 });
             }
+            
             return db.collection('groups').add({
                 "name" : req.body.name,
                 "uid" : uid,
-                "members" : [uid]
+                "members" : [{
+                    "uid": uid,
+                    "username" : req.body.username
+                }]
             })
         }).then(ref => {
             return res.status(200).json({
@@ -363,7 +367,8 @@ app.post('/group/add', [
     jsonParser,
     check('groupID').exists(),
     check('idToken').exists(),
-    check('emailToAdd').exists()
+    check('emailToAdd').exists(),
+    check('usernameToAdd').exists()
     ], (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -371,6 +376,7 @@ app.post('/group/add', [
         }
         var uid;
         var uidToAdd;
+        var groupRef;
         // first verify token
         admin.auth().verifyIdToken(req.body.idToken)
         .then(decodedToken => {
@@ -392,7 +398,7 @@ app.post('/group/add', [
             throw res.status(401).json({"reason": "email not found."})
         }).then(() => {
             // Now verify groupID
-            var groupRef = db.collection('groups').doc(req.body.groupID);
+            groupRef = db.collection('groups').doc(req.body.groupID);
             return groupRef.get()
         }).then(doc => {
                 if (doc.exists) {
@@ -400,12 +406,20 @@ app.post('/group/add', [
                 } else {
                     throw res.status(401).json({"reason": "groupID not found."});
                 }
-                if (!members.includes(uid)) {
+                
+                var allowedToAdd = false;
+                for (i = 0; i < members.length; i++) {
+                    if (members[i].uid == uid) allowedToAdd = true;
+                    if (members[i].uid == uidToAdd) throw res.status(401).json({"reason" : "member already exists in group"});
+                }
+
+                if (!allowedToAdd) {
                     throw res.status(401).json({"reason" : "you do not have access to add to this group"});
-                } else if (members.includes(uidToAdd)) {
-                    throw res.status(401).json({"reason" : "member already exists in group"});
                 } else {
-                    members.push(uidToAdd);
+                    members.push({
+                        "uid" : uidToAdd,
+                        "username" : req.body.usernameToAdd
+                    });
                     return groupRef.update("members", members)
                 }
         }).then(ref => {
@@ -495,6 +509,18 @@ app.get('/assigned-chores', (req, res) => {
             console.log(doc.id, '=>', doc.data());
         });
         console.log(response);
+        res.json(response);
+    });
+});
+
+app.get('/users', (req, res) => {
+    var groupId = req.query.groupID;
+    var groupsRef = db.collection("groups");
+    groupsRef.doc(groupId).get().then(doc => {
+        response = [];
+        members = doc.data().members;
+        console.log(members);
+        for (i = 0; i < members.length; i++) response.push(members[i].username);
         res.json(response);
     });
 });
