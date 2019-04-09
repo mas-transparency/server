@@ -7,18 +7,19 @@ Returns a JSON list of all chores associated with a groupID
 ## GET /users?groupID=exampleGroupID
 Returns a JSON list of all users associated with a groupID
 
+## GET /assignedChores?groupID=exampleGroupID&idToken=exampleIdToken
+Returns a JSON list of all assignedChoers associated with a groupID and idToken. We've been using idToken=1234 to bypass checking with Google. If you
+do this, you will want to pass in a uid=exampleUid. Otherwise, you can just use an actual idToken.
+
 ## POST /completedChore
 Creates a Chore. Requires a JSON body payload with the following
 fields specified.
 
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
-| name             | String    | yes       |             |
-| reward           | String    | yes       |             |
-| num_chore_points | Numeric   | yes       |             |
-| duration | Numeric   | yes       |             |
-| idToken      | String    | yes       |             |
-| groupID      | String    | yes       |             |
+| choreId             | String    | yes       |             |
+| idToken          | String    | yes       |             |
+
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
 
 ## POST /chores

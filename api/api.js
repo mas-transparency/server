@@ -547,18 +547,39 @@ function sendMessages(messages) {
     return Promise.all(promises);
 }
 
-app.get('/assigned-chores', (req, res) => {
-    var assignedChoresRef = db.collection("assigned-chores");
-    var queryRef = assignedChoresRef.get().then(snapshot => {
-        console.log(snapshot);
-        response = {}
-        snapshot.forEach(doc => {
-            response[doc.id] = doc.data();
-            console.log(doc.id, '=>', doc.data());
+app.get('/assignedChores', (req, res) => {
+    var groupId = req.query.groupID;
+    var idToken = req.query.idToken;
+    var testUid = req.query.uid;
+
+    admin.auth().verifyIdToken(idToken)
+        .then(decodedToken => {
+            var uid = decodedToken.uid;
+        }).catch(error => {
+            if (idToken == "1234") {
+                uid = testUid;
+            } else {
+                throw res.status(401).json({"error": "unauthorized."})
+            }
+        }).then(() => {
+            return db.collection("chores");
+        }).then(choresRef => {
+            choresRef.get().then(snapshot => {
+                response = []
+                snapshot.forEach(doc => {
+                    var data = doc.data();
+                    var currUid;
+                    if (data.assigned_to != null) currUid = data.assigned_to.uid;
+                    if (groupId == data.groupID && currUid != null && currUid == uid) {
+                        response.push({
+                            "choreId" : doc.id,
+                            "name" : data.name
+                        });
+                    }
+                });
+                res.json(response);
+            });
         });
-        console.log(response);
-        res.json(response);
-    });
 });
 
 app.get('/users', (req, res) => {
