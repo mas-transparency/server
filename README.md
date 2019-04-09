@@ -4,6 +4,9 @@ Currently Implemented Endpoints:
 ## GET /chores?groupID=exampleGroupID
 Returns a JSON list of all chores associated with a groupID
 
+## GET /users?groupID=exampleGroupID
+Returns a JSON list of all users associated with a groupID
+
 ## POST /chores
 Creates a Chore. Requires a JSON body payload with the following
 fields specified.
@@ -47,6 +50,7 @@ Creates a Group. Requires a JSON body payload with the following fields specifie
 |------------------|-----------|-----------|-------------|
 | name             | String    | yes       |             |
 | idToken           | String    | yes       |             |
+| username         | String    | yes       |             |
 Where `idToken` corresponds to the current user's authenticated firebase token.
 
 Returns the groupID of the current group
@@ -59,6 +63,7 @@ Adds a user to a group. Requires a JSON body payload with the following fields.
 | groupID             | String    | yes       |             |
 | idToken           | String    | yes       |             |
 | emailToAdd           | String    | yes       |             |
+| usernameToAdd           | String    | yes       |             |
 Where `emailToAdd` is the associated Firebase user
 
 ## POST /assigned-groups
