@@ -77,6 +77,9 @@ app.post('/completedChore', [
             choresRef = db.collection('chores').doc(req.body.choreId);
             choresRef.update("index", index);
             choresRef.update("assigned_to", nextInLine);
+            // send notifications to all members of group about who
+            // has been assigned
+
             return choresRef;
         }).then(ref => {
             return res.status(200).json({
@@ -328,22 +331,34 @@ app.post('/assigned-groups', [
         admin.auth().verifyIdToken(req.body.idToken)
         .then(function(decodedToken) {
             var uid = decodedToken.uid;
-            var query = db.collection('groups').where("members", "array-contains", uid);
+            var query = db.collection('groups');
             var groups = {};
             return query.get().then(snapshot => {
                 snapshot.forEach(doc => {
-                    groups[doc.id] = doc.data();
+                    var members = doc.data().members;
+                    var containsUid = false;
+                    for(member of members) {
+                        if(member.uid == uid) {
+                            groups[doc.id] = doc.data();
+                        }
+                    }
                 })
                 return res.status(200).json(groups);
             })
         }).catch(function(error) {
             if (req.body.idToken == "1234") {
                 var uid = req.body.uid;
-                var query = db.collection('groups').where("members", "array-contains", uid);
+                var query = db.collection('groups');
                 var groups = {};
                 return query.get().then(snapshot => {
                     snapshot.forEach(doc => {
-                        groups[doc.id] = doc.data();
+                        var members = doc.data().members;
+                        var containsUid = false;
+                        for(member of members) {
+                            if(member.uid == uid) {
+                                groups[doc.id] = doc.data();
+                            }
+                        }
                     })
                     return res.status(200).json(groups);
                 })
@@ -392,7 +407,7 @@ app.post('/group', [
                     "reason" : "The group already exists"
                 });
             }
-            
+
             return db.collection('groups').add({
                 "name" : req.body.name,
                 "uid" : uid,
@@ -454,7 +469,7 @@ app.post('/group/add', [
                 } else {
                     throw res.status(401).json({"reason": "groupID not found."});
                 }
-                
+
                 var allowedToAdd = false;
                 for (i = 0; i < members.length; i++) {
                     if (members[i].uid == uid) allowedToAdd = true;
@@ -600,20 +615,20 @@ app.get('/users', (req, res) => {
 
 function shuffle(array) {
     var currentIndex = array.length, temporaryValue, randomIndex;
-  
+
     // While there remain elements to shuffle...
     while (0 !== currentIndex) {
-  
+
       // Pick a remaining element...
       randomIndex = Math.floor(Math.random() * currentIndex);
       currentIndex -= 1;
-  
+
       // And swap it with the current element.
       temporaryValue = array[currentIndex];
       array[currentIndex] = array[randomIndex];
       array[randomIndex] = temporaryValue;
     }
-  
+
     return array;
   }
 
