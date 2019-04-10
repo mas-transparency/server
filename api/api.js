@@ -588,7 +588,12 @@ app.get('/users', (req, res) => {
     groupsRef.doc(groupId).get().then(doc => {
         response = [];
         members = doc.data().members;
-        for (i = 0; i < members.length; i++) response.push(members[i].username);
+        for (i = 0; i < members.length; i++) {
+            response.push({
+                "uid" : members[i].uid,
+                "username" : members[i].username
+            });
+        }
         res.json(response);
     });
 });
