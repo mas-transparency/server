@@ -314,65 +314,11 @@ app.post('/devices', [
 });
 
 
-/*
- * POST /assigned-groups
- * Returns groups associated with a particular user
- * Takes in a single paramter idToken, returns a JSON dictionary
- * mapping group ids to group objects
-*/
-app.post('/assigned-groups', [
-    jsonParser,
-    check('idToken').exists()
-    ], (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(422).json({ errors: errors.array() });
-        }
-        admin.auth().verifyIdToken(req.body.idToken)
-        .then(function(decodedToken) {
-            var uid = decodedToken.uid;
-            var query = db.collection('groups');
-            var groups = {};
-            return query.get().then(snapshot => {
-                snapshot.forEach(doc => {
-                    var members = doc.data().members;
-                    var containsUid = false;
-                    for(member of members) {
-                        if(member.uid == uid) {
-                            groups[doc.id] = doc.data();
-                        }
-                    }
-                })
-                return res.status(200).json(groups);
-            })
-        }).catch(function(error) {
-            if (req.body.idToken == "1234") {
-                var uid = req.body.uid;
-                var query = db.collection('groups');
-                var groups = {};
-                return query.get().then(snapshot => {
-                    snapshot.forEach(doc => {
-                        var members = doc.data().members;
-                        var containsUid = false;
-                        for(member of members) {
-                            if(member.uid == uid) {
-                                groups[doc.id] = doc.data();
-                            }
-                        }
-                    })
-                    return res.status(200).json(groups);
-                })
-            } else {
-                throw res.status(402).json({
-                    "reason": "not authorized"
-                });
-            }
-        }).catch(error => {
-            console.log(error);
-        });
-});
 
-// endpoint for creating group
+/*
+ * Endpoint for creating a group. Accepts a name, and the uid of the creator.
+ * Returns 200 and groupID on success, 422 if the group alraedy exists.
+*/
 app.post('/group', [
     jsonParser,
     check('name').exists(),
@@ -398,9 +344,7 @@ app.post('/group', [
             return db.collection('groups').add({
                 "name" : req.body.name,
                 "uid" : uid,
-                "members" : [{
-                    "uid": uid,
-                }]
+                "members" : [uid]
             })
         }).then(ref => {
             return res.status(200).json({
@@ -408,6 +352,33 @@ app.post('/group', [
             })
         }).catch(function(error) {
             console.log(error);
+        });
+});
+
+
+/*
+ * POST /assigned-groups
+ * Returns groups associated with a particular user
+ * Takes in a single paramter idToken, returns a JSON dictionary
+ * mapping group ids to group objects
+*/
+app.post('/assigned-groups', [
+    jsonParser,
+    check('uid').exists()
+    ], (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+        var groups = {}
+        db.collection('groups').where("members", "array-contains", req.body.uid).get().then(snapshot => {
+            snapshot.forEach(doc => {
+                groups[doc.id] = doc.data();
+            })
+            return res.status(200).json(groups);
+        }).catch(error => {
+            console.log(error);
+            return res.status(400).json({errors: "An error has occured."})
         });
 });
 

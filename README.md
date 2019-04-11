@@ -86,9 +86,9 @@ body payload with the following fields specified
 
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
-| idToken          | String    | yes       |             |
+| uid          | String    | yes       |             |
 
-Where `idToken` corresponds the current user's authenticated firebase token.
+Where `uid` corresponds the current user's uid.
 
 The API will return a JSON dictionary mapping group-ids to members in the following format. Here is an example output:
 ```
