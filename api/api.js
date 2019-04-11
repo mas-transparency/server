@@ -313,6 +313,23 @@ app.post('/devices', [
         });
 });
 
+/**
+ * Endpoint for getting ALL of the groups.
+ * Used for displaying the groups you can join
+*/
+app.get('/groups', (req, res) => {
+    var groups = {}
+    db.collection('groups').get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                groups[doc.id] = doc.data()
+            })
+            return res.status(200).json(groups)
+        }).catch(error => {
+            console.log(error);
+            return res.status(400).json({"errors": "An error has occured."})
+        })
+});
 
 
 /*

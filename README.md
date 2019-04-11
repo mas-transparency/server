@@ -58,6 +58,10 @@ Deletes a chore. Requires a JSON body payload with the following fields specifie
 | idToken      | String    | yes       |             |
 | choreID      | String    | yes       |             |
 
+## GET /groups
+Returns all groups. Used for browsing groups.
+Returns same output format as /assigned-groups
+
 ## POST /group
 Creates a Group. Requires a JSON body payload with the following fields specified
 
