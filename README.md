@@ -58,15 +58,14 @@ Deletes a chore. Requires a JSON body payload with the following fields specifie
 | idToken      | String    | yes       |             |
 | choreID      | String    | yes       |             |
 
-## POST /groups
+## POST /group
 Creates a Group. Requires a JSON body payload with the following fields specified
 
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
 | name             | String    | yes       |             |
-| idToken           | String    | yes       |             |
-| username         | String    | yes       |             |
-Where `idToken` corresponds to the current user's authenticated firebase token.
+| uid           | String    | yes       |             |
+Where `uid` corresponds to the current user's UID.
 
 Returns the groupID of the current group
 

@@ -376,32 +376,19 @@ app.post('/assigned-groups', [
 app.post('/group', [
     jsonParser,
     check('name').exists(),
-    check('idToken').exists(),
-    check('username').exists()
+    check('uid').exists(),
     ], (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(422).json({ errors: errors.array() });
         }
-        var uid;
-        var groupsRef;
-        admin.auth().verifyIdToken(req.body.idToken)
-        .then(function(decodedToken) {
-            uid = decodedToken.uid;
-            return db.collection('groups').where("uid", "==", uid).where("name", "==", req.body.name).get();
-        }).catch(error => {
-            if (req.body.idToken == "1234") {
-                uid = req.body.uid;
-                return db.collection('groups').where("uid", "==", uid).where("name", "==", req.body.name).get();
-            } else {
-                throw res.status(401).json({"error": "unauthorized."})
-            }
-        }).then((snapshot) => {
+        var uid = req.body.uid;
+        db.collection('groups').where("uid", "==", uid).where("name", "==", req.body.name).get()
+        .then((snapshot) => {
             let exists = false;
             snapshot.forEach(doc => {
                 exists = true;
             });
-
             if (exists) {
                 throw res.status(422).json({
                     "reason" : "The group already exists"
@@ -413,7 +400,6 @@ app.post('/group', [
                 "uid" : uid,
                 "members" : [{
                     "uid": uid,
-                    "username" : req.body.username
                 }]
             })
         }).then(ref => {
