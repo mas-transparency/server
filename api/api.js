@@ -329,7 +329,7 @@ app.post('/group', [
             return res.status(422).json({ errors: errors.array() });
         }
         var uid = req.body.uid;
-        db.collection('groups').where("uid", "==", uid).where("name", "==", req.body.name).get()
+        db.collection('groups').where("name", "==", req.body.name).get()
         .then((snapshot) => {
             let exists = false;
             snapshot.forEach(doc => {
