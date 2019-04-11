@@ -399,70 +399,36 @@ app.post('/assigned-groups', [
         });
 });
 
-// endpoint for adding to group
+/*
+
+*/
 app.post('/group/add', [
     jsonParser,
     check('groupID').exists(),
-    check('idToken').exists(),
-    check('emailToAdd').exists(),
-    check('usernameToAdd').exists()
+    check('uid').exists()
     ], (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(422).json({ errors: errors.array() });
         }
-        var uid;
-        var uidToAdd;
-        var groupRef;
-        // first verify token
-        admin.auth().verifyIdToken(req.body.idToken)
-        .then(decodedToken => {
-            var uid = decodedToken.uid;
-            var members = [];
-            // now verify emailToAdd
-            return admin.auth().getUserByEmail(req.body.emailToAdd)
-        }).catch(error => {
-            if (req.body.idToken == "1234") {
-                uid = req.body.uid;
-                return admin.auth().getUserByEmail(req.body.emailToAdd)
-            } else {
-                throw res.status(401).json({"error": "unauthorized."})
-            }
-        })
-        .then(function(userRecord) {
-            uidToAdd = userRecord.uid;
-        }).catch(function(error) {
-            throw res.status(401).json({"reason": "email not found."})
-        }).then(() => {
-            // Now verify groupID
-            groupRef = db.collection('groups').doc(req.body.groupID);
-            return groupRef.get()
-        }).then(doc => {
+        var members = []
+        var groupsRef = db.collection('groups').doc(req.body.groupID);
+        groupsRef.get()
+        .then(doc => {
                 if (doc.exists) {
                     members = doc.data().members;
                 } else {
                     throw res.status(401).json({"reason": "groupID not found."});
                 }
-
-                var allowedToAdd = false;
-                for (i = 0; i < members.length; i++) {
-                    if (members[i].uid == uid) allowedToAdd = true;
-                    if (members[i].uid == uidToAdd) throw res.status(401).json({"reason" : "member already exists in group"});
+                if (members.includes(req.body.uid)) {
+                    throw res.status(401).json({"reason" : "member already exists in group"});
                 }
-
-                if (!allowedToAdd) {
-                    throw res.status(401).json({"reason" : "you do not have access to add to this group"});
-                } else {
-                    members.push({
-                        "uid" : uidToAdd,
-                        "username" : req.body.usernameToAdd
-                    });
-                    return groupRef.update("members", members)
-                }
+                members.push(req.body.uid);
+                return groupsRef.update("members", members)
         }).then(ref => {
             // send notifications to all other members that a user has been added to the group.
             // We want to obtain the corresponding tokens for each uid
-            return res.status(200).json({"message" : "successfully added new member to group"});
+            return res.status(200).json({"message" : "successfully joined group"});
         }).catch(error => {
             console.log(error);
         })

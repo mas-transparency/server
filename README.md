@@ -74,15 +74,12 @@ Where `uid` corresponds to the current user's UID.
 Returns the groupID of the current group
 
 ## POST /groups/add
-Adds a user to a group. Requires a JSON body payload with the following fields.
+Joins a group.
 
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
 | groupID             | String    | yes       |             |
-| idToken           | String    | yes       |             |
-| emailToAdd           | String    | yes       |             |
-| usernameToAdd           | String    | yes       |             |
-Where `emailToAdd` is the associated Firebase user
+| uid           | String    | yes       |             |
 
 ## POST /assigned-groups
 Gets all groups associated with the current authenticated user. Requires JSON
