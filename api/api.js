@@ -218,10 +218,10 @@ function getProfile(uid) {
               return db.collection("profiles").doc(uid).set({
                   "total_chore_points": 0,
                   "uid": uid,
-              });
+              })
           }
       }).then(ref => {
-          var total_chore_points =  ref.data().total_chore_points;
+          var total_chore_points = ref.data().total_chore_points;
           // obtain data from ref and the userRecord
           return Promise.resolve({
               "displayName": displayName,
@@ -297,7 +297,7 @@ app.post('/profile', [
         .then(doc => {
             // combine the data from display name
             var output = {};
-            output[doc.id] = doc.data();
+            output[doc.uid] = doc;
             res.status(200).json(output)
         }).catch(error => {
             console.log(error);
@@ -352,7 +352,11 @@ app.post('/chores', [
         });
 });
 
-app.get('/assignedChores', (req, res) => {
+// Returns all chores associated with a particular group
+app.post('/group-chores', [
+    jsonParser,
+    check('groupID').exists()
+], (req, res) => {
     var groupId = req.query.groupID;
     var idToken = req.query.idToken;
     var testUid = req.query.uid;
