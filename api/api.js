@@ -47,153 +47,6 @@ app.get('/chores', (req, res) => {
     });
 });
 
-app.post('/completedChore', [
-    jsonParser,
-    check('choreId').exists(),
-    check('idToken').exists()
-    ], (req, res) => {
-        // get all chores associated with groupID
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(422).json({ errors: errors.array() });
-        }
-        var uid;
-        admin.auth().verifyIdToken(req.body.idToken)
-        .then(function(decodedToken) {
-            uid = decodedToken.uid;
-            return db.collection('chores').doc(req.body.choreId).get();
-        }).catch(error => {
-            if (req.body.idToken == "1234") {
-                uid = req.body.uid;
-                return db.collection('chores').doc(req.body.choreId).get();
-            } else {
-                throw res.status(401).json({"error": "unauthorized."})
-            }
-        }).then((doc) => {
-            var data = doc.data();
-            var index = (data.index + 1) % data.rotation.length;
-            var nextInLine = data.rotation[index];
-            console.log(nextInLine);
-            choresRef = db.collection('chores').doc(req.body.choreId);
-            choresRef.update("index", index);
-            choresRef.update("assigned_to", nextInLine);
-            // send notifications to all members of group about who
-            // has been assigned
-
-            return choresRef;
-        }).then(ref => {
-            return res.status(200).json({
-                "ref" : ref.id
-            })
-        }).catch(function(error) {
-            console.log(error);
-        });
-});
-
-// Edit a Chore has a name, reward, num_chore_points,
-// and is associated with a particular groupID
-// This endpoint accepts application/json requests
-app.post('/chores/edit', [
-    jsonParser,
-    check('name').exists(),
-    check('reward').exists(),
-    check('num_chore_points').isNumeric(),
-    check('assigned_to').exists(),
-    check('idToken').exists(),
-    check('groupID').exists(),
-    check('duration').isNumeric(),
-    check('choreID').exists()
-    ], (req, res) => {
-    const errors = validationResult(req);
-    // Check to see if the req includes name, reward, and num_chore_points
-    if (!errors.isEmpty()) {
-        return res.status(422).json({ errors: errors.array() });
-    }
-
-    // Verify that the user is logged in
-    var uid = null;
-    admin.auth().verifyIdToken(req.body.idToken)
-    .then(function(decodedToken) {
-        uid = decodedToken.uid;
-    }).catch(function(error) {
-        if (req.body.idToken == "1234") {
-            console.log("here");
-            uid = req.body.uid;
-        } else {
-            throw res.status(402).json({
-                "reason": "not authorized"
-            });
-        }
-    }).then( () => {
-        return db.collection('chores').doc(req.body.choreID).get()
-    }).then(doc => {
-        if (doc.exists) {
-
-            return db.collection("chores").doc(doc.id).update({
-                "name": req.body.name,
-                "reward": req.body.reward,
-                "num_chore_points": req.body.num_chore_points,
-                "assigned_to": req.body.assigned_to,
-                "idToken" : req.body.idToken,
-                "duration" : req.body.duration,
-                "groupID": req.body.groupID
-            });
-        } else {
-            throw res.status(402).json({
-                "reason": "groupID does not exist!"
-            })
-        }
-    }).then(ref => {
-        console.log("Updated chore with id" + ref.id);
-        return res.status(200).json({
-            id: ref.id,
-            data: ref.data
-        });
-    }).catch(error => {
-        console.log(error);
-    });
-});
-
-app.post('/chores/delete', [
-    jsonParser,
-    check('idToken').exists(),
-    check('choreID').exists()
-    ], (req, res) => {
-    const errors = validationResult(req);
-    // Check to see if the req includes name, reward, and num_chore_points
-    if (!errors.isEmpty()) {
-        return res.status(422).json({ errors: errors.array() });
-    }
-
-    // Verify that the user is logged in
-    var uid = null;
-    admin.auth().verifyIdToken(req.body.idToken)
-    .then(function(decodedToken) {
-        uid = decodedToken.uid;
-    }).catch(function(error) {
-        if (req.body.idToken == "1234") {
-            uid = req.body.uid;
-        } else {
-            throw res.status(402).json({"reason": "not authorized"});
-        }
-    }).then( () => {
-        return db.collection('chores').doc(req.body.choreID).get()
-    }).then(doc => {
-        if (doc.exists) {
-            return db.collection("chores").doc(doc.id).delete();
-        } else {
-            throw res.status(402).json({"reason": "groupID does not exist!"})
-        }
-    }).then(ref => {
-        return res.status(200).json({
-            id: ref.id,
-            data: ref.data
-        });
-    }).catch(error => {
-        console.log(error);
-    });
-});
-
 /*
  Gets the profile for the given uid.
  If the uid doesn't exist in collection, create it.
@@ -380,6 +233,39 @@ app.post('/group-chores', [
         })
         return res.status(200).json(response);
     })
+});
+
+/*
+ * Completes a chore.
+*/
+app.post('/chores/complete', [
+    jsonParser,
+    check('choreID').exists()
+    ], (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+        return db.collection('chores').doc(req.body.choreID).get()
+        .then(doc => {
+            // check if chore exists
+            if (!doc.exists) {
+                throw res.status(404).json({"error": "choreID does not exist!"})
+            }
+
+            // check if isDone is already true
+            if (doc.data().isDone == true) {
+                throw res.status(422).json({"error": "Chore is already done!"})
+            }
+
+            return db.collection('chores').doc(req.body.choreID).update("isDone", true)
+        }).then(ref => {
+            return res.status(200).json({
+                "status" : "Successfully updated chore."
+            })
+        }).catch(function(error) {
+            console.log(error);
+        });
 });
 
 

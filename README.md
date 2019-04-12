@@ -54,6 +54,7 @@ Returns all chores associated with a particular uid.
 
 ## POST /group-chores
 Returns all chores associated with a particular groupID
+
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
 | groupID             | String    | yes       |             |
