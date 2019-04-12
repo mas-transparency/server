@@ -19,7 +19,6 @@ Retrieves the profile including the displayName, email, and total chore points o
 | uid           | String    | yes       |             |
 
 
-
 ## POST /completedChore
 Creates a Chore. Requires a JSON body payload with the following
 fields specified.
@@ -45,6 +44,19 @@ fields specified.
 
 assigned_to corresponds to the uid of the user to assign to.
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
+
+## POST /assigned-chores
+Returns all chores associated with a particular uid.
+
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| uid             | String    | yes       |             |
+
+## POST /group-chores
+Returns all chores associated with a particular groupID
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| groupID             | String    | yes       |             |
 
 ## POST /chores/edit
 Edits a chore. Requires a JSON body payload with the following fields specified.
