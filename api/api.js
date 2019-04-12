@@ -257,7 +257,7 @@ app.post('/chores/complete', [
             if (doc.data().isDone == true) {
                 throw res.status(422).json({"error": "Chore is already done!"})
             }
-
+            // Increment the total chore points of the user's UID
             return db.collection('chores').doc(req.body.choreID).update("isDone", true)
         }).then(ref => {
             return res.status(200).json({
