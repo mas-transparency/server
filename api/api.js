@@ -194,75 +194,161 @@ app.post('/chores/delete', [
     });
 });
 
+/*
+ Gets the profile for the given uid.
+ If the uid doesn't exist in collection, create it.
+*/
+function getProfile(uid) {
+    // check to see if the uid is valid
+    var displayName;
+    var email;
+    return admin.auth().getUser(uid)
+      .then(userRecord => {
+          // Now we check to see if the record exists in the profiles collection
+          displayName = userRecord.displayName;
+          email = userRecord.email;
+          return db.collection('profiles').doc(uid).get()
+      }).then(doc => {
+          if (doc.exists) {
+              // return the doc data as promise
+              return db.collection('profiles').doc(uid).get()
+          } else {
+              // create the document
+              console.log("creating user profile");
+              return db.collection("profiles").doc(uid).set({
+                  "total_chore_points": 0,
+                  "uid": uid,
+              });
+          }
+      }).then(ref => {
+          var total_chore_points =  ref.data().total_chore_points;
+          // obtain data from ref and the userRecord
+          return Promise.resolve({
+              "displayName": displayName,
+              "email": email,
+              "total_chore_points": total_chore_points,
+              "uid": uid
+          });
+      }).catch(function(error) {
+        console.log("Error fetching user data:", error);
+        throw error
+      });
+}
+
+/*
+ * Accepts an array of UIDs, and retrieves all of their profiles. Selects one at random
+ * as a weighted probability of their chore points, and returns a promise of the uid of the user that
+ * has been selected.
+*/
+function selectRandomUser(uids) {
+    var promises = []
+    for (let uid of uids) {
+        promises.push(getProfile(uid))
+    }
+    return Promise.all(promises)
+        .then(users => {
+            var score_mappings = users.map(user => {
+                return {"uid": user.uid, "total_chore_points": user.total_chore_points}
+            })
+            // TODO: weighted selection instead of just random
+            var index = Math.floor(Math.random() * score_mappings.length);
+            return Promise.resolve(score_mappings[index].uid);
+        }).catch(errors => {
+            console.log(errors);
+            throw errors.errorInfo.message;
+        });
+}
+
+/*
+ * Endpoint that returns a random UID according to weights from passed UIDs
+*/
+app.post('/roulette', [
+    jsonParser,
+    check('uids').exists()
+], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() })
+    }
+    if (!Array.isArray(req.body.uids)) {
+        return res.status(422).json({"error": "uids must be an array"})
+    }
+
+    selectRandomUser(req.body.uids)
+    .then(uid => {
+        return res.status(200).json({"uid": uid});
+    })
+    .catch(error => {
+        console.log(error);
+        return res.status(422).json({"error": error})
+    })
+});
+
+
+app.post('/profile', [
+    jsonParser,
+    check('uid').exists()
+    ], (req,res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() })
+        }
+        getProfile(req.body.uid)
+        .then(doc => {
+            // combine the data from display name
+            var output = {};
+            output[doc.id] = doc.data();
+            res.status(200).json(output)
+        }).catch(error => {
+            console.log(error);
+            res.status(400).json({"error": "uid does not exist."})
+        })
+});
+
+/*
+ * Creates chores associated with a given groupID
+ */
 app.post('/chores', [
     jsonParser,
     check('name').exists(),
     check('reward').exists(),
     check('num_chore_points').isNumeric(),
-    check('duration').isNumeric(),
-    check('idToken').exists(),
     check('groupID').exists(),
+    check('assigned_to').exists(),
     ], (req, res) => {
     const errors = validationResult(req);
-    // Check to see if the req includes name, reward, and num_chore_points
     if (!errors.isEmpty()) {
-        return res.status(422).json({ errors: errors.array() });
+        return res.status(422).json({ errors: errors.array() })
     }
 
-    // Verify that the user is logged in
-    var uid = null;
-    admin.auth().verifyIdToken(req.body.idToken)
-    .then(function(decodedToken) {
-        uid = decodedToken.uid;
-    }).catch(function(error) {
-        if (req.body.idToken == "1234") {
-            uid = req.body.uid;
-        } else {
-            throw res.status(402).json({
-                "reason": "not authorized"
-            });
-        }
-    }).then( () => {
-        return db.collection('groups').doc(req.body.groupID).get()
-    }).then(doc => {
-        if (doc.exists) {
-            // check to see if the user is in the given groupID
-            var allowedToAdd = false;
-            members = doc.data().members;
-            for (i = 0; i < members.length; i++) {
-                if (members[i].uid == uid) allowedToAdd = true;
-            }
-            if (allowedToAdd) {
-                // Now that we know that the groupID and uid are valid
-                // we can go ahead and construct the chore
-                randArr = shuffle(doc.data().members);
+    db.collection('groups').doc(req.body.groupID).get()
+        .then(doc => {
+            //validate that the assigned to is in the group
+            if (doc.exists) {
+                var members = doc.data().members;
+
+                if (!members.includes(req.body.assigned_to)) {
+                    throw res.status(402).json({"reason": "assigned_to user is not in group!"})
+                }
+                // Now that we've verified the group exists, we will assign the
+                // user with the user based on a weighted sum of their corresponding
+                // chore points.
                 return db.collection("chores").add({
                     "name": req.body.name,
                     "reward": req.body.reward,
                     "num_chore_points": req.body.num_chore_points,
-                    "duration": req.body.duration,
-                    "assigned_to": randArr[0],
-                    "index" : 0,
+                    "assigned_to": req.body.assigned_to,
                     "groupID": req.body.groupID,
-                    "rotation" : randArr
                 })
             } else {
-                throw res.status(402).json({"reason": "User not in group!"});
+                throw res.status(402).json({"reason": "groupID does not exist!"});
             }
-        } else {
-            throw res.status(402).json({
-                "reason": "groupID does not exist!"
-            })
-        }
-    }).then(ref => {
-        console.log("Added new chore with id " + ref.id);
-        return res.status(200).json({
-            id: ref.id,
-            data: ref.data
+        }).then(ref => {
+            console.log("Added new chore with id " + ref.id);
+            return res.status(200).json({"choreID": ref.id});
+        }).catch(error => {
+            console.log(error);
         });
-    }).catch(error => {
-        console.log(error);
-    });
 });
 
 
@@ -400,7 +486,8 @@ app.post('/assigned-groups', [
 });
 
 /*
-
+ * POST /group/add
+ * Joins a given groupID with the passed UID
 */
 app.post('/group/add', [
     jsonParser,
@@ -553,23 +640,5 @@ app.get('/users', (req, res) => {
     });
 });
 
-function shuffle(array) {
-    var currentIndex = array.length, temporaryValue, randomIndex;
-
-    // While there remain elements to shuffle...
-    while (0 !== currentIndex) {
-
-      // Pick a remaining element...
-      randomIndex = Math.floor(Math.random() * currentIndex);
-      currentIndex -= 1;
-
-      // And swap it with the current element.
-      temporaryValue = array[currentIndex];
-      array[currentIndex] = array[randomIndex];
-      array[randomIndex] = temporaryValue;
-    }
-
-    return array;
-  }
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))

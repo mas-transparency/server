@@ -31,9 +31,9 @@ fields specified.
 | name             | String    | yes       |             |
 | reward           | String    | yes       |             |
 | num_chore_points | Numeric   | yes       |             |
-| duration | Numeric   | yes       |             |
-| idToken      | String    | yes       |             |
+| assigned_to      | String    | yes       |             |
 | groupID      | String    | yes       |             |
+assigned_to corresponds to the uid of the user to assign to.
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
 
 ## POST /chores/edit
@@ -80,6 +80,14 @@ Joins a group.
 |------------------|-----------|-----------|-------------|
 | groupID             | String    | yes       |             |
 | uid           | String    | yes       |             |
+
+## POST /profile
+Retrieves the profile including the displayName, email, and total chore points of a uid
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| uid           | String    | yes       |             |
+
+
 
 ## POST /assigned-groups
 Gets all groups associated with the current authenticated user. Requires JSON
