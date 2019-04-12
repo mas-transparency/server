@@ -11,6 +11,15 @@ Returns a JSON list of all users associated with a groupID
 Returns a JSON list of all assignedChoers associated with a groupID and idToken. We've been using idToken=1234 to bypass checking with Google. If you
 do this, you will want to pass in a uid=exampleUid. Otherwise, you can just use an actual idToken.
 
+## POST /profile
+Retrieves the profile including the displayName, email, and total chore points of a uid
+
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| uid           | String    | yes       |             |
+
+
+
 ## POST /completedChore
 Creates a Chore. Requires a JSON body payload with the following
 fields specified.
@@ -33,6 +42,7 @@ fields specified.
 | num_chore_points | Numeric   | yes       |             |
 | assigned_to      | String    | yes       |             |
 | groupID      | String    | yes       |             |
+
 assigned_to corresponds to the uid of the user to assign to.
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
 
@@ -80,13 +90,6 @@ Joins a group.
 |------------------|-----------|-----------|-------------|
 | groupID             | String    | yes       |             |
 | uid           | String    | yes       |             |
-
-## POST /profile
-Retrieves the profile including the displayName, email, and total chore points of a uid
-| field            | data type | required? | Description |
-|------------------|-----------|-----------|-------------|
-| uid           | String    | yes       |             |
-
 
 
 ## POST /assigned-groups
