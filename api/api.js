@@ -338,6 +338,7 @@ app.post('/chores', [
                     "reward": req.body.reward,
                     "num_chore_points": req.body.num_chore_points,
                     "assigned_to": req.body.assigned_to,
+                    "isDone": false,
                     "groupID": req.body.groupID,
                 })
             } else {
@@ -348,6 +349,41 @@ app.post('/chores', [
             return res.status(200).json({"choreID": ref.id});
         }).catch(error => {
             console.log(error);
+        });
+});
+
+app.get('/assignedChores', (req, res) => {
+    var groupId = req.query.groupID;
+    var idToken = req.query.idToken;
+    var testUid = req.query.uid;
+
+    admin.auth().verifyIdToken(idToken)
+        .then(decodedToken => {
+            var uid = decodedToken.uid;
+        }).catch(error => {
+            if (idToken == "1234") {
+                uid = testUid;
+            } else {
+                throw res.status(401).json({"error": "unauthorized."})
+            }
+        }).then(() => {
+            return db.collection("chores");
+        }).then(choresRef => {
+            choresRef.get().then(snapshot => {
+                response = []
+                snapshot.forEach(doc => {
+                    var data = doc.data();
+                    var currUid;
+                    if (data.assigned_to != null) currUid = data.assigned_to.uid;
+                    if (groupId == data.groupID && currUid != null && currUid == uid) {
+                        response.push({
+                            "choreId" : doc.id,
+                            "name" : data.name
+                        });
+                    }
+                });
+                res.json(response);
+            });
         });
 });
 
@@ -589,56 +625,6 @@ function sendMessages(messages) {
     return Promise.all(promises);
 }
 
-app.get('/assignedChores', (req, res) => {
-    var groupId = req.query.groupID;
-    var idToken = req.query.idToken;
-    var testUid = req.query.uid;
-
-    admin.auth().verifyIdToken(idToken)
-        .then(decodedToken => {
-            var uid = decodedToken.uid;
-        }).catch(error => {
-            if (idToken == "1234") {
-                uid = testUid;
-            } else {
-                throw res.status(401).json({"error": "unauthorized."})
-            }
-        }).then(() => {
-            return db.collection("chores");
-        }).then(choresRef => {
-            choresRef.get().then(snapshot => {
-                response = []
-                snapshot.forEach(doc => {
-                    var data = doc.data();
-                    var currUid;
-                    if (data.assigned_to != null) currUid = data.assigned_to.uid;
-                    if (groupId == data.groupID && currUid != null && currUid == uid) {
-                        response.push({
-                            "choreId" : doc.id,
-                            "name" : data.name
-                        });
-                    }
-                });
-                res.json(response);
-            });
-        });
-});
-
-app.get('/users', (req, res) => {
-    var groupId = req.query.groupID;
-    var groupsRef = db.collection("groups");
-    groupsRef.doc(groupId).get().then(doc => {
-        response = [];
-        members = doc.data().members;
-        for (i = 0; i < members.length; i++) {
-            response.push({
-                "uid" : members[i].uid,
-                "username" : members[i].username
-            });
-        }
-        res.json(response);
-    });
-});
 
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
