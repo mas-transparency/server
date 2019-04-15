@@ -246,6 +246,36 @@ app.post('/group-chores', [
 });
 
 /*
+ * Returns the previous 5 chores that have been completed
+*/
+app.post('/group-feed', [
+    jsonParser,
+    check('groupFeed').exists()
+], (req,res) => {
+    db.collection("chores")
+        .where("groupID", "==", req.body.groupID)
+        .where("isDone", "==", true)
+        .orderBy("modifiedTime", "desc")
+        .limit(10)
+        .get()
+    .then(snapshot => {
+        var response = [];
+        snapshot.forEach(doc => {
+            chore = doc.data()
+            chore.id = doc.id;
+            response.push(chore);
+        })
+        return res.status(200).json(response);
+    }).catch(error => {
+        console.log(error);
+        return res.status(404).json({"error": "something went wrong."})
+    })
+})
+/*
+
+*/
+
+/*
  * Completes a chore.
 */
 app.post('/chores/complete', [

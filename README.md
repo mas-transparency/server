@@ -18,17 +18,6 @@ Retrieves the profile including the displayName, email, and total chore points o
 |------------------|-----------|-----------|-------------|
 | uid           | String    | yes       |             |
 
-
-## POST /chores/complete
-Completes a chore. Requires a JSON body payload with the following
-fields specified.
-
-| field            | data type | required? | Description |
-|------------------|-----------|-----------|-------------|
-| choreId             | String    | yes       |             |
-
-Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
-
 ## POST /chores
 Creates a Chore. Requires a JSON body payload with the following
 fields specified.
@@ -43,6 +32,57 @@ fields specified.
 
 assigned_to corresponds to the uid of the user to assign to.
 Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
+
+## POST /chores/complete
+Completes a chore. Requires a JSON body payload with the following
+fields specified.
+
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| choreId             | String    | yes       |             |
+
+Returns 200 and the newly created chore-id if successful. Otherwise returns 422.
+
+## POST /group-feed
+
+Gets the most recent ten chores completed by a particular group.
+
+| field            | data type | required? | Description |
+|------------------|-----------|-----------|-------------|
+| groupId             | String    | yes       |             |
+
+Example output:
+
+```
+[
+    {
+        "modifiedTime": {
+            "_seconds": 1555305095,
+            "_nanoseconds": 105000000
+        },
+        "groupID": "IEBLr1oChKqpRBBxuRf6",
+        "isDone": true,
+        "num_chore_points": 10,
+        "reward": "one_dollar",
+        "assigned_to": "WdehdYJfS8YQ3LzwxqlSALPtFza2",
+        "name": "Do Dishes",
+        "id": "F2ilDFBEJIvcQ8jZaOTc"
+    },
+    {
+        "modifiedTime": {
+            "_seconds": 1555304827,
+            "_nanoseconds": 505000000
+        },
+        "groupID": "IEBLr1oChKqpRBBxuRf6",
+        "isDone": true,
+        "num_chore_points": 10,
+        "reward": "one_dollar",
+        "assigned_to": "WdehdYJfS8YQ3LzwxqlSALPtFza2",
+        "name": "Do Dishes",
+        "id": "XnKQtm7mzKIFNx7WMNZO"
+    }
+]
+```
 
 ## POST /assigned-chores
 Returns all chores associated with a particular uid.
