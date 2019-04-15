@@ -173,6 +173,7 @@ app.post('/chores', [
     var groupsRef = db.collection('groups').doc(req.body.groupID);
     var members = [];
     var choreID;
+    var displayName;
     groupsRef.get()
         .then(doc => {
             //validate that the assigned to is in the group
@@ -181,7 +182,6 @@ app.post('/chores', [
                 if (!members.includes(req.body.assigned_to)) {
                     throw res.status(402).json({"reason": "assigned_to user is not in group!"})
                 }
-
                 return db.collection("chores").add({
                     "name": req.body.name,
                     "reward": req.body.reward,
@@ -195,8 +195,12 @@ app.post('/chores', [
             }
         }).then(ref => {
             choreID = ref.id;
+            // Obtain the display name of the user that has just been assigned.
+            return getProfile(req.body.assigned_to)
+        }).then(user => {
             // notify all users of the group that we have created a new chore
-            return sendNotifications(members, "Chore added", "Chore added: " + req.body.name);
+            // and assigned it to a user
+            return sendNotifications(members, "Chore added", user.displayName + " has been assigned a new chore: " + req.body.name);
         }).then(_ => {
             return res.status(200).json({"choreID": choreID});
         }).catch(error => {
@@ -254,6 +258,7 @@ app.post('/chores/complete', [
         var members = [];
         var groupID;
         var choreName;
+        var displayName;
         return db.collection('chores').doc(req.body.choreID).get()
         .then(doc => {
             // check if chore exists
@@ -270,17 +275,13 @@ app.post('/chores/complete', [
             choreName = doc.data().name
             // Increment the total chore points of the user's UID
             // First, the user's profile document
-            return db.collection('profiles').doc(uid).get()
+            return getProfile(uid)
         }).then(user => {
-            if(!user.exists) {
-                throw res.status(400).json({
-                    "error": "assigned_to user does not exist"
-                })
-            } else {
-                var currentScore = user.data().total_chore_points
-                currentScore += choreScore;
-                return db.collection('profiles').doc(uid).update("total_chore_points", currentScore)
-            }
+            var currentScore = user.total_chore_points
+            currentScore += choreScore;
+            // real name used for notification
+            displayName = user.displayName;
+            return db.collection('profiles').doc(uid).update("total_chore_points", currentScore)
         }).then(ref => {
             return db.collection('chores').doc(req.body.choreID).update("isDone", true);
         }).then(ref => {
@@ -288,7 +289,7 @@ app.post('/chores/complete', [
         }).then(group => {
             members = group.data().members;
             // Now, let's notify all users in the group that we have finished the chores
-            return sendNotifications(members, "Chore completed", "Chore completed: " + choreName);
+            return sendNotifications(members, "Chore completed", displayName + " completed a chore: " + choreName);
         }).then(_ => {
             return res.status(200).json({"status": "successfully completed chore!"})
         }).catch(function(error) {
@@ -516,7 +517,6 @@ function sendNotifications(uids, reqTitle, reqBody) {
         for (let uid of uids) {
             if (uid in deviceTokens) {
                 for(token in deviceTokens[uid]) {
-                    console.log(deviceTokens[uid][token]);
                     promises.push(
                         rp.post({
                           url: 'https://exp.host/--/api/v2/push/send',
