@@ -315,11 +315,10 @@ app.post('/devices', [
                     return devicesRef.update("deviceTokens", devices);
                 }
             } else {
-                return db.collection("devices").doc(req.body.uid).set({
-                    'deviceToken': 'deviceToken'
-                });
                 var devices = [req.body.deviceToken]
-                return devicesRef.update("deviceTokens", devices)
+                return db.collection("devices").doc(req.body.uid).set({
+                    'deviceTokens': devices
+                });
             }
         }).then(ref => {
             console.log("Added Device with " + ref.id + "with token " + req.body.deviceToken);
