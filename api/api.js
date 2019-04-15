@@ -389,7 +389,7 @@ app.post('/devices', [
                 });
             }
         }).then(ref => {
-            console.log("Added Device with " + ref.id + "with token " + req.body.deviceToken);
+            console.log("Added Device with " + req.body.uid + " with token " + req.body.deviceToken);
             return res.status(200).json({
                 id: ref.id,
                 data: ref.data
