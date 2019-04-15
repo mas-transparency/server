@@ -182,6 +182,8 @@ app.post('/chores', [
                 if (!members.includes(req.body.assigned_to)) {
                     throw res.status(402).json({"reason": "assigned_to user is not in group!"})
                 }
+                const timestamp = admin.firestore.Timestamp.now()
+
                 return db.collection("chores").add({
                     "name": req.body.name,
                     "reward": req.body.reward,
@@ -189,6 +191,7 @@ app.post('/chores', [
                     "assigned_to": req.body.assigned_to,
                     "isDone": false,
                     "groupID": req.body.groupID,
+                    "modifiedTime": timestamp,
                 })
             } else {
                 throw res.status(402).json({"reason": "groupID does not exist!"});
@@ -284,7 +287,10 @@ app.post('/chores/complete', [
             return db.collection('profiles').doc(uid).update("total_chore_points", currentScore)
         }).then(ref => {
             return db.collection('chores').doc(req.body.choreID).update("isDone", true);
-        }).then(ref => {
+        }).then(_ => {
+            const timestamp = admin.firestore.Timestamp.now()
+            return db.collection('chores').doc(req.body.choreID).update("modifiedTime", timestamp);
+        }).then(_ => {
             return db.collection('groups').doc(groupID).get()
         }).then(group => {
             members = group.data().members;
