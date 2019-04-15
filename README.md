@@ -158,8 +158,8 @@ Registers a deviceID token for a particular uid. Used to send push notifications
 | uid          | String    | yes       |             |
 | deviceToken          | String    | yes       |             |   |  
 ## POST /roulette
-Returns a uid from a list according to a random weighted algorithm.
+Returns a uid from a groupID accoring to a random weighted algorithm.
 
 | field            | data type | required? | Description |
 |------------------|-----------|-----------|-------------|
-| uids          | array    | yes       |             |
+| groupID          | String    | yes       |             |

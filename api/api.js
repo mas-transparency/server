@@ -102,9 +102,24 @@ function selectRandomUser(uids) {
             var score_mappings = users.map(user => {
                 return {"uid": user.uid, "total_chore_points": user.total_chore_points}
             })
-            // TODO: weighted selection instead of just random
-            var index = Math.floor(Math.random() * score_mappings.length);
-            return Promise.resolve(score_mappings[index].uid);
+
+
+            // compute cumulativeWeights using  1/Math.log(score_mapping.total_chore_points + 2)
+            var total = 0;
+            var cumWeights = score_mappings.map(score_mapping => {
+                total +=  1/Math.log(score_mapping.total_chore_points + 2)
+                return total;
+            })
+
+
+            // Generate random number between 0 and the total
+            var target = Math.random() * total;
+            // find the first element that is greater than or equal to the target
+            for(var i = 0; i < score_mappings.length; i++) {
+                if(cumWeights[i] >= target) {
+                    return Promise.resolve(score_mappings[i].uid);
+                }
+            }
         }).catch(errors => {
             console.log(errors);
             throw errors.errorInfo.message;
@@ -112,22 +127,28 @@ function selectRandomUser(uids) {
 }
 
 /*
- * Endpoint that returns a random UID according to weights from passed UIDs
+ * Endpoint that returns a random UID according to the total_chore_points
+ * of each of the uids within a given groupID
 */
 app.post('/roulette', [
     jsonParser,
-    check('uids').exists()
+    check('groupID').exists()
 ], (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(422).json({ errors: errors.array() })
     }
-    if (!Array.isArray(req.body.uids)) {
-        return res.status(422).json({"error": "uids must be an array"})
-    }
 
-    selectRandomUser(req.body.uids)
-    .then(uid => {
+    // get all of the members of a particular groupID
+    var members = []
+    db.collection("groups").doc(req.body.groupID).get().then(doc => {
+        if (doc.exists) {
+            members = doc.data().members;
+            return selectRandomUser(members)
+        } else {
+            throw res.status(422),json({"errors": "groupID does not exist."})
+        }
+    }).then(uid => {
         return res.status(200).json({"uid": uid});
     })
     .catch(error => {
