@@ -38,7 +38,6 @@ app.get('/chores', (req, res) => {
     var queryRef = choresRef.get().then(snapshot => {
         response = {}
         snapshot.forEach(doc => {
-            console.log(doc.data());
             if (groupId == doc.data().groupID) {
                 response[doc.id] = doc.data();
             }
@@ -173,6 +172,7 @@ app.post('/chores', [
 
     var groupsRef = db.collection('groups').doc(req.body.groupID);
     var members = [];
+    var choreID;
     groupsRef.get()
         .then(doc => {
             //validate that the assigned to is in the group
@@ -194,10 +194,11 @@ app.post('/chores', [
                 throw res.status(402).json({"reason": "groupID does not exist!"});
             }
         }).then(ref => {
-            console.log("Added new chore with id " + ref.id);
+            choreID = ref.id;
             // notify all users of the group that we have created a new chore
-
-            return res.status(200).json({"choreID": ref.id});
+            return sendNotifications(members, "Chore added", "Chore added: " + req.body.name);
+        }).then(_ => {
+            return res.status(200).json({"choreID": choreID});
         }).catch(error => {
             console.log(error);
         });
@@ -250,6 +251,9 @@ app.post('/chores/complete', [
         }
         var uid;
         var choreScore;
+        var members = [];
+        var groupID;
+        var choreName;
         return db.collection('chores').doc(req.body.choreID).get()
         .then(doc => {
             // check if chore exists
@@ -258,12 +262,12 @@ app.post('/chores/complete', [
             }
 
             // check if isDone is already true
-            if (doc.data().isDone == true) {
-                throw res.status(422).json({"error": "Chore is already done!"})
-            }
+            if (doc.data().isDone == true) {throw res.status(422).json({"error": "Chore is already done!"})}
             choreScore = doc.data().num_chore_points;
             // get the uid of the user who was assigned to the chore.
             uid = doc.data().assigned_to
+            groupID = doc.data().groupID
+            choreName = doc.data().name
             // Increment the total chore points of the user's UID
             // First, the user's profile document
             return db.collection('profiles').doc(uid).get()
@@ -280,10 +284,15 @@ app.post('/chores/complete', [
         }).then(ref => {
             return db.collection('chores').doc(req.body.choreID).update("isDone", true);
         }).then(ref => {
-            return res.status(200).json({"status": "successfully completed chore!"})
+            return db.collection('groups').doc(groupID).get()
+        }).then(group => {
+            members = group.data().members;
             // Now, let's notify all users in the group that we have finished the chores
+            return sendNotifications(members, "Chore completed", "Chore completed: " + choreName);
+        }).then(_ => {
+            return res.status(200).json({"status": "successfully completed chore!"})
         }).catch(function(error) {
-            console.log(error);
+            console.log(error.body);
         });
 });
 
@@ -467,8 +476,6 @@ app.post('/group/add', [
                 members.push(req.body.uid);
                 return groupsRef.update("members", members)
         }).then(ref => {
-            // send notifications to all other members that a user has been added to the group.
-            // We want to obtain the corresponding tokens for each uid
             return res.status(200).json({"message" : "successfully joined group"});
         }).catch(error => {
             console.log(error);
@@ -480,57 +487,6 @@ app.get('/tokens', (req, res) => {
         res.status(200).json(tokens);
     });
 })
-
-// debug endpoint to send messages
-app.post('/notify',[
-    jsonParser,
-    check('title').exists(),
-    check('body').exists(),
-    ], (req, res) => {
-    // First we validate the payload includes title and body
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(422).json({ errors: errors.array() });
-    }
-    // Then we send the message to all tokens.
-    var devicesRef = db.collection("devices");
-    var queryRef = devicesRef.get().then(snapshot => {
-        var tokens = [];
-        var messages = [];
-        snapshot.forEach(doc => {
-            console.log(doc);
-            console.log(deviceTokens);
-            var deviceTokens = doc.data().deviceTokens;
-            for(let deviceToken of deviceTokens) {
-                tokens.push(deviceToken);
-            }
-        })
-        for (let pushToken of tokens) {
-          // Each push token looks like ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
-
-          // Check that all your push tokens appear to be valid Expo push tokens
-          if (!Expo.isExpoPushToken(pushToken)) {
-            console.error(`Push token ${pushToken} is not a valid Expo push token`);
-            continue;
-          }
-
-          // Construct a message (see https://docs.expo.io/versions/latest/guides/push-notifications.html)
-          messages.push({
-              to: pushToken,
-              sound: 'default',
-              body: req.body.body,
-              data: {body: req.body.body, title: req.body.title}
-          })
-        }
-        return sendMessages(messages);
-    }).then(response => {
-        res.status(200).json(response);
-        console.log(response);
-    }).catch(error => {
-        console.log(error);
-        res.status(401).json(error);
-    });
-});
 
 // Returns a Promise for a dictionary that maps from uid to deviceTokens,
 // note that this is pretty inefficient with large amounts of users
@@ -546,23 +502,42 @@ function getDeviceTokens() {
     })
 }
 
-function sendMessages(messages) {
+// Sends a message for all deviceTokens associated
+// with each uid. Note that notifications aren't sent for uids with no
+// corresponding deviceTokens
+function sendNotifications(uids, reqTitle, reqBody) {
     var promises = []
-    for (let message of messages) {
-        promises.push(
-            rp.post({
-              url: 'https://exp.host/--/api/v2/push/send',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(message)
-          })
-        )
-      }
-    return Promise.all(promises);
+    var deviceTokens = {}
+    //first obtain device tokens
+    getDeviceTokens().then(dt => {
+        deviceTokens = dt;
+        // now we go through every uid, and attempt to send
+        // push notification for each
+        for (let uid of uids) {
+            if (uid in deviceTokens) {
+                for(token in deviceTokens[uid]) {
+                    console.log(deviceTokens[uid][token]);
+                    promises.push(
+                        rp.post({
+                          url: 'https://exp.host/--/api/v2/push/send',
+                          headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                              to: deviceTokens[uid][token],
+                              sound: 'default',
+                              body: reqBody,
+                              data: {body: reqBody, title: reqTitle}
+                          })
+                        })
+                    )
+                }
+            }
+        }
+        return Promise.all(promises);
+    })
 }
-
 
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
