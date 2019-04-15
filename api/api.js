@@ -281,6 +281,7 @@ app.post('/chores/complete', [
             return db.collection('chores').doc(req.body.choreID).update("isDone", true);
         }).then(ref => {
             return res.status(200).json({"status": "successfully completed chore!"})
+            // Now, let's notify all users in the group that we have finished the chores
         }).catch(function(error) {
             console.log(error);
         });
@@ -304,8 +305,27 @@ app.post('/devices', [
 
     // obtain the document corresponding to the given uid
     var devices = [];
+
     var devicesRef = db.collection('devices').doc(req.body.uid)
-    devicesRef.get().then(doc => {
+    // delete token from any uid that does not include the current Array
+    db.collection('devices').where('deviceTokens', 'array-contains', req.body.deviceToken).get()
+    .then(snapshot => {
+        var promises = [];
+        snapshot.forEach(doc => {
+            if (doc.id != req.body.uid) {
+                var tokens = doc.data().deviceTokens;
+                // delete this deviceToken from that device reference
+                var filteredTokens = tokens.filter(token => {
+                    return token != req.body.deviceToken;
+                })
+                var empty = [] // ensure that the array is at least empty
+                promises.push(db.collection('devices').doc(doc.id).update('deviceTokens', empty.concat(filteredTokens)))
+            }
+        })
+        return Promise.all(promises);
+    }).then(_ => {
+        return devicesRef.get();
+    }).then(doc => {
             if (doc.exists) {
                 // get the current document, and add to the deviceToken array
                 var devices = doc.data().deviceTokens;
@@ -455,6 +475,12 @@ app.post('/group/add', [
         })
 });
 
+app.get('/tokens', (req, res) => {
+    getDeviceTokens().then(tokens => {
+        res.status(200).json(tokens);
+    });
+})
+
 // debug endpoint to send messages
 app.post('/notify',[
     jsonParser,
@@ -506,9 +532,18 @@ app.post('/notify',[
     });
 });
 
-// returns the device token associated with a particular user
-function getDeviceTokens(uid) {
-
+// Returns a Promise for a dictionary that maps from uid to deviceTokens,
+// note that this is pretty inefficient with large amounts of users
+function getDeviceTokens() {
+    var devicesRef = db.collection("devices");
+    var response = {};
+    return devicesRef.get().then(snapshot => {
+        snapshot.forEach(doc => {
+            var deviceTokens = doc.data().deviceTokens;
+            response[doc.id] = deviceTokens;
+        })
+        return Promise.resolve(response);
+    })
 }
 
 function sendMessages(messages) {
