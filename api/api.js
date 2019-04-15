@@ -246,6 +246,8 @@ app.post('/chores/complete', [
         if (!errors.isEmpty()) {
             return res.status(422).json({ errors: errors.array() });
         }
+        var uid;
+        var choreScore;
         return db.collection('chores').doc(req.body.choreID).get()
         .then(doc => {
             // check if chore exists
@@ -257,12 +259,26 @@ app.post('/chores/complete', [
             if (doc.data().isDone == true) {
                 throw res.status(422).json({"error": "Chore is already done!"})
             }
+            choreScore = doc.data().num_chore_points;
+            // get the uid of the user who was assigned to the chore.
+            uid = doc.data().assigned_to
             // Increment the total chore points of the user's UID
-            return db.collection('chores').doc(req.body.choreID).update("isDone", true)
+            // First, the user's profile document
+            return db.collection('profiles').doc(uid).get()
+        }).then(user => {
+            if(!user.exists) {
+                throw res.status(400).json({
+                    "error": "assigned_to user does not exist"
+                })
+            } else {
+                var currentScore = user.data().total_chore_points
+                currentScore += choreScore;
+                return db.collection('profiles').doc(uid).update("total_chore_points", currentScore)
+            }
         }).then(ref => {
-            return res.status(200).json({
-                "status" : "Successfully updated chore."
-            })
+            return db.collection('chores').doc(req.body.choreID).update("isDone", true);
+        }).then(ref => {
+            return res.status(200).json({"status": "successfully completed chore!"})
         }).catch(function(error) {
             console.log(error);
         });
