@@ -165,27 +165,27 @@ app.post('/chores', [
     check('groupID').exists(),
     check('assigned_to').exists(),
     ], (req, res) => {
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(422).json({ errors: errors.array() })
     }
 
-    db.collection('groups').doc(req.body.groupID).get()
+    var groupsRef = db.collection('groups').doc(req.body.groupID);
+    var members = [];
+    groupsRef.get()
         .then(doc => {
             //validate that the assigned to is in the group
             if (doc.exists) {
-                var members = doc.data().members;
-
+                members = doc.data().members;
                 if (!members.includes(req.body.assigned_to)) {
                     throw res.status(402).json({"reason": "assigned_to user is not in group!"})
                 }
-                // Now that we've verified the group exists, we will assign the
-                // user with the user based on a weighted sum of their corresponding
-                // chore points.
+
                 return db.collection("chores").add({
                     "name": req.body.name,
                     "reward": req.body.reward,
-                    "num_chore_points": req.body.num_chore_points,
+                    "num_chore_points": Number(req.body.num_chore_points), // force to be a number
                     "assigned_to": req.body.assigned_to,
                     "isDone": false,
                     "groupID": req.body.groupID,
@@ -195,6 +195,8 @@ app.post('/chores', [
             }
         }).then(ref => {
             console.log("Added new chore with id " + ref.id);
+            // notify all users of the group that we have created a new chore
+
             return res.status(200).json({"choreID": ref.id});
         }).catch(error => {
             console.log(error);
@@ -503,6 +505,11 @@ app.post('/notify',[
         res.status(401).json(error);
     });
 });
+
+// returns the device token associated with a particular user
+function getDeviceTokens(uid) {
+
+}
 
 function sendMessages(messages) {
     var promises = []
