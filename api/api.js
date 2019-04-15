@@ -1,4 +1,6 @@
 const { Expo } = require('expo-server-sdk');
+const schedule = require('node-schedule');
+
 const expo = new Expo();
 const express = require('express')
 const bodyParser = require('body-parser')
@@ -18,6 +20,11 @@ const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: 'https://transparency-c26c5.firebaseio.com'
+});
+
+var j = schedule.scheduleJob('0 0 8 * * *', function(){
+  console.log("hey everyone!");
+  updateStatus();
 });
 
 
@@ -173,6 +180,24 @@ app.post('/profile', [
             res.status(400).json({"error": "uid does not exist."})
         })
 });
+
+app.post('/profile/edit', [
+    jsonParser,
+    check('uid').exists(),
+    check('displayName').exists()
+    ], (req, res) => {
+        const errors = validationResult(req)
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() })
+        }
+        admin.auth().updateUser(req.body.uid, {
+          displayName: req.body.displayName
+        }).then(response => {
+          return res.status(200).json(response.toJSON());
+        }).catch(error => {
+          console.log(error);
+        })
+})
 
 /*
  * Creates chores associated with a given groupID
@@ -557,6 +582,37 @@ function getDeviceTokens() {
             response[doc.id] = deviceTokens;
         })
         return Promise.resolve(response);
+    })
+}
+
+// sends a push notification to each user
+// informing them of how many chores they have to finish
+function updateStatus() {
+    var deviceTokens = {}
+    // first obtain device tokens
+    getDeviceTokens().then(dt => {
+        deviceTokens = dt;
+        var numbChores = {}
+        // now we want to query all chores, and
+        // count how many chores exist for each assigned_to user
+        db.collection("chores").get().then(snapshot => {
+            snapshot.forEach(doc => {
+                var assigned_to = doc.data().assigned_to;
+                if(assigned_to in deviceTokens) {
+                    if(assigned_to in numbChores) {
+                        numbChores[assigned_to] += 1;
+                    } else {
+                        numbChores[assigned_to] = 1;
+                    }
+                }
+            })
+            for (var uid in numbChores) {
+                // find all device tokens associated with a particular user,
+                // and update on the number of pending chores
+                var num = numbChores[uid];
+                sendNotifications([uid], "Chore Update", "You have " + num + " chores assigned.");
+            }
+        })
     })
 }
 
